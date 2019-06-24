@@ -11,3 +11,4 @@ nuopc*.mk
 aux/makefile
 ftn/makefile
 ftn/makefile_*
+.idea

@@ -945,7 +945,9 @@
                          NML_EXCL_POINT, NML_EXCL_BODY,                 &
                          NML_OUTBND_COUNT, NML_OUTBND_LINE, IERR)
       ELSE
-        OPEN (NDSI,FILE=TRIM(FNMPRE)//'ww3_grid.inp',STATUS='OLD',        &
+!        OPEN (NDSI,FILE=TRIM(FNMPRE)//'ww3_grid.inp',STATUS='OLD',        &
+!micah edit
+        OPEN (NDSI,FILE='../inp/grid.inp',STATUS='OLD',        &
               ERR=2000,IOSTAT=IERR)
       END IF
 !

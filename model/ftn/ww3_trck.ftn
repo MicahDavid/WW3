@@ -123,7 +123,9 @@
       WRITE (NDSO,900)
 !
       J      = LEN_TRIM(FNMPRE)
-      OPEN (NDSI,FILE=FNMPRE(:J)//'ww3_trck.inp',STATUS='OLD',        &
+!      OPEN (NDSI,FILE=FNMPRE(:J)//'ww3_trck.inp',STATUS='OLD',        &
+! micah edit
+       OPEN (NDSI,FILE='../inp/trck.inp',STATUS='OLD',        &
             ERR=805,IOSTAT=IERR)
       READ (NDSI,'(A)',END=806,ERR=807) COMSTR
       IF (COMSTR.EQ.' ') COMSTR = '$'

@@ -1011,7 +1011,9 @@
 
 !/DEBUGINIT        WRITE(740+IAPROC,*) ' FNMPRE=', TRIM(FNMPRE)
 !/DEBUGINIT        FLUSH(740+IAPROC)
-        OPEN (NDSI,FILE=TRIM(FNMPRE)//'ww3_shel.inp',STATUS='OLD',IOSTAT=IERR)
+!        OPEN (NDSI,FILE=TRIM(FNMPRE)//'ww3_shel.inp',STATUS='OLD',IOSTAT=IERR)
+! micah edit
+              OPEN (NDSI,FILE='../inp/shel.inp',STATUS='OLD', IOSTAT=IERR)
         REWIND (NDSI)
 !/DEBUGINIT        WRITE(740+IAPROC,*) 'Before read 2002, case 1'
 !/DEBUGINIT        FLUSH(740+IAPROC)

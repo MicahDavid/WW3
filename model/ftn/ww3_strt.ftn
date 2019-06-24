@@ -265,7 +265,9 @@
       IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,900)
 !
       J      = LEN_TRIM(FNMPRE)
-      OPEN (NDSI,FILE=FNMPRE(:J)//'ww3_strt.inp',STATUS='OLD',        &
+!      OPEN (NDSI,FILE=FNMPRE(:J)//'ww3_strt.inp',STATUS='OLD',        &
+! micah edit
+      OPEN (NDSI,FILE='../inp/strt.inp',STATUS='OLD',        &
             ERR=800,IOSTAT=IERR)
       REWIND (NDSI)
       READ (NDSI,'(A)',END=801,ERR=802) COMSTR

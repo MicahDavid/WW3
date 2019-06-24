@@ -203,7 +203,9 @@
       CALL ITRACE ( NDSTRC, NTRACE )
 !/S      CALL STRACE (IENT, 'W3GRIB')
 !
-      OPEN (NDSI,FILE='ww3_grib.inp',STATUS='OLD',ERR=800,IOSTAT=IERR)
+!      OPEN (NDSI,FILE='ww3_grib.inp',STATUS='OLD',ERR=800,IOSTAT=IERR)
+! micah edit
+      OPEN (NDSI,FILE='../inp/grib.inp',STATUS='OLD',ERR=800,IOSTAT=IERR)
       READ (NDSI,'(A)',END=801,ERR=802) COMSTR
       IF (COMSTR.EQ.' ') COMSTR = '$'
       WRITE (NDSO,901) COMSTR

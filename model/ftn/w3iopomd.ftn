@@ -1064,9 +1064,9 @@
       IF ( WRITE ) THEN
           WRITE (NDSOP)                            TIME
        ELSE
-         READ(NDSOP)TIME
+         READ(NDSOP,END=803)TIME
          WRITE(6,*)'READ TIME:',TIME
-          READ (NDSOP,END=803,ERR=802,IOSTAT=IERR) TIME
+          !READ (NDSOP,END=803,ERR=802,IOSTAT=IERR) TIME
           WRITE(6,*)'time read'
         END IF
 !

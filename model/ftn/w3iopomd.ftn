@@ -1020,6 +1020,7 @@
               WRITE (NDSOP)                                           &
                 IDSTR, VEROPT, NK, NTH, NOPTS
             ELSE
+            WRITE(6,*)'read A'
               READ (NDSOP,END=801,ERR=802,IOSTAT=IERR)                &
                 IDTST, VERTST, MK, MTH, NOPTS
 !
@@ -1048,6 +1049,7 @@
               WRITE (NDSOP)                                           &
                     ((PTLOC(J,I),J=1,2),I=1,NOPTS), (PTNME(I),I=1,NOPTS)
            ELSE
+                       WRITE(6,*)'read B'
               READ  (NDSOP,END=801,ERR=802,IOSTAT=IERR)               &
                     ((PTLOC(J,I),J=1,2),I=1,NOPTS), (PTNME(I),I=1,NOPTS)
             END IF
@@ -1088,7 +1090,7 @@
                     ASO(I), CAO(I), CDO(I), ICEO(I), ICEHO(I),        &
                     ICEFO(I), GRDID(I), (SPCO(J,I),J=1,NSPEC)
           ELSE
-
+            WRITE(6,*)'read C'
              READ (NDSOP,END=801,ERR=802,IOSTAT=IERR)                 &
                     IW(I), II(I), IL(I), DPO(I), WAO(I), WDO(I),      &
 !/SETUP             ZET_SETO(I),                                      &

@@ -1066,6 +1066,7 @@
        ELSE
                                 WRITE(6,*) 'Time: ', TIME
           READ (NDSOP,END=803,ERR=802,IOSTAT=IERR) TIME
+          WRITE(6,*)'time read'
         END IF
 !
 !/T      WRITE (NDST,9010) TIME

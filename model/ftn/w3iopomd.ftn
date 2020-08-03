@@ -230,7 +230,7 @@
 !/
       INTEGER, INTENT(IN)          :: NPT, IMOD
       REAL, INTENT(INOUT)          :: XPT(NPT), YPT(NPT)
-      CHARACTER(LEN=10),INTENT(IN) :: PNAMES(NPT)
+      CHARACTER(LEN=40),INTENT(IN) :: PNAMES(NPT)
 !/
 !/ ------------------------------------------------------------------- /
 !/ Local parameters

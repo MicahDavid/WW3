@@ -80,29 +80,16 @@
 # --------------------------------------------------------------------------- #
 # Add here the correct linker call including switches
 
-  libs=""
-#  opt="-O3 -ip -o $prog"
-# opt="-O3 -xSSE4.2 -ip -o $prog"
-  opt="-O3 -heap-arrays -prec-div -prec-sqrt -xHost -align array128byte -ip -o $prog"
-  # opt="-O0 -g -traceback -check all -fpe0 -ftrapuv -o $prog"
-  
 # Intel compiler ------------------------------------------------------------
 # 3.a Build options and determine compiler name
 #     No GRIB libraries for this one
-  if [ "$ncep_grib_compile" = 'yes' ]
-  then
-      G2_LIB4=/home/ec2-user/ww3/lib/g2lib-3.2.0/libg2.a
-      W3NCO_LIB4=/home/ec2-user/ww3/lib/w3lib-2.2.0/libw3.a
-      BACIO_LIB4=/home/ec2-user/ww3/lib/bacio-1.3/libbacio.a
-      JASPER_LIB=/usr/local/lib/libjasper.a
-      PNG_LIB=/usr/local/lib/libpng12.a
-      Z_LIB=/usr/local/lib/libz.a
-    opt="$opt -convert big_endian -assume byterecl -prec-div -prec-sqrt"
-    libs="$libs ${G2_LIB4} ${W3NCO_LIB4} ${BACIO_LIB4} ${JASPER_LIB} ${PNG_LIB} ${Z_LIB}"
-  fi
-  
 
-
+  # linking options
+  libs=""
+#  opt="-O3 -ip -o $prog"
+# opt="-O3 -xSSE4.2 -ip -o $prog"
+ opt="-O3 -heap-arrays -prec-div -prec-sqrt -xHost -align array128byte -ip -o $prog"
+# opt="-O0 -g -traceback -check all -fpe0 -ftrapuv -o $prog"
 
   # mpi implementation
   if [ "$mpi_mod" = 'yes' ]

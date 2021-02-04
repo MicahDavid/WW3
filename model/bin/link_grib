@@ -95,7 +95,7 @@
       W3NCO_LIB4=/home/ec2-user/ww3/lib/w3lib-2.2.0/libw3.a
       BACIO_LIB4=/home/ec2-user/ww3/lib/bacio-1.3/libbacio.a
       JASPER_LIB=/usr/local/lib/libjasper.a
-      PNG_LIB=/usr/local/lib/libpng12.a
+      PNG_LIB=/usr/local/lib/ibpng12.a
       Z_LIB=/usr/local/lib/libz.a
     opt="$opt -convert big_endian -assume byterecl -prec-div -prec-sqrt"
     libs="$libs ${G2_LIB4} ${W3NCO_LIB4} ${BACIO_LIB4} ${JASPER_LIB} ${PNG_LIB} ${Z_LIB}"

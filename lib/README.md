@@ -58,7 +58,7 @@ FFLAGS= -O3
 CFLAGS=-O3 
 
 Then: 
-
+make
 A successful make will result in libbacio.a file in working directory
  
 

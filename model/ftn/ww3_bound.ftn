@@ -123,7 +123,7 @@
                 NDSI,NDSM, NDSI2,NDSS,NDSB, NDSTRC, NTRACE, &
                 NK1,NTH1,NSPEC1, NBI, NBI2,           &
                 NKI, NTHI, NBO, NBO2, IERR, INTERP, ILOOP, &
-               IFMIN, IFMIN2, IFMAX, VERBOSE
+               VERBOSE
 !/S      INTEGER, SAVE           :: IENT = 0
       INTEGER     IBO
       !REAL   , DIMENSION(:),     ALLOCATABLE :: SPEC
@@ -131,6 +131,10 @@
       REAL   , DIMENSION(:,:),   ALLOCATABLE :: SPEC2D
       REAL   , DIMENSION(:),     ALLOCATABLE :: FREQ, THETA
       REAL   FR1I, TH1I
+!micah edit: source spectrum's own frequency increment factor, used to
+!  write a truthful nest.ww3 header when it differs from the model's own
+!  grid - see the "Defines frequency range in spectra" removal below.
+      REAL   XFR1
       REAL, ALLOCATABLE     :: XBPI(:), YBPI(:), RDBPI(:,:),        &
                                XBPO(:), YBPO(:), RDBPO(:,:),        &
                                ABPIN(:,:) 
@@ -327,7 +331,12 @@
             NSPEC1  = NK1 * NTH1
             ALLOCATE (FREQ(NK1),THETA(NTH1))
             ALLOCATE (SPEC2D(NK1,NTH1))
-            ALLOCATE (ABPIN(NK*NTH1,NBO2))
+!micah edit: size ABPIN to the source's own spectral grid (NK1*NTH1),
+!  not the model's - nest.ww3 is now written at native source resolution
+!  and reconciled against the model's grid later by W3IOBC's existing
+!  SPCONV/W3CSPC mechanism when the nest file is read (see removed
+!  frequency-alignment block below).
+            ALLOCATE (ABPIN(NK1*NTH1,NBO2))
           ELSE
 !
 !  To be cleaned up later ... 
@@ -344,55 +353,19 @@
         END DO
 
 !
-! Defines frequency range in spectra
+!micah edit: previously this section required the source spectrum's NK,
+!  NTH, XFR and FR1 to match (or nearly match) the model's own grid,
+!  aborting via GOTO 2006/2007/2008 otherwise (see NCEP's own comment on
+!  error 2008: "IT WILL BE MANAGED SOON BY SPCONV"). nest.ww3 is now
+!  always written at the source's own native spectral resolution
+!  (NK1/NTH1/FREQ(1)/THETA(1), computed just below), with no attempt to
+!  align/pad it against the model's grid here. Any mismatch against the
+!  model's own NK/NTH/XFR/FR1 is reconciled later, when this nest.ww3 is
+!  read back in during the actual run, by W3IOBC's existing SPCONV check
+!  and W3CSPC spectral-regridding call (model/ftn/w3iobcmd.ftn) - the
+!  same mechanism already used for ordinary WW3-to-WW3 nesting.
+      XFR1  = FREQ(2)/FREQ(1)
 !
-
-      ! Checks consistency of NK
-      IF (NKI.GT.NK) GOTO 2008
-!
-      ! HERE we define IFMIN IFMIN2 IFMAX and IFMAX2 frequency indices
-      ! such that source spec SPEC (read in input) links with output spec
-      ! APBIN with APBIN(IFMIN2:IFMAX2) = SPEC(IFMIN:IFMAX)
-      ! Then APBIN(1:IFMIN2) = 0 and APBIN(IFMAX2:end) = 0
-      IFMIN=1  ! index of first freq. in source spectrum
-      IFMIN2=1 ! index of first freq. in output spectrum
-      IFMAX=NK1 ! index of last freq. in source spectrum
-!        IFMAX2=NK ! index of last freq. in output spectrum
-!
-      ! Checks consistency of XFR
-      IF (ABS((FREQ(IFMIN+1)/FREQ(IFMIN))-XFR).GT.0.005) GOTO 2006
-!
-      ! Checks consistency of NTH
-      ! WARNING: check is only done on number of directions, no check 
-      ! is done on the relative offset of first direction in terms of 
-      ! the directional increment [-0.5,0.5] (last parameter of the 
-      ! spectral definition in ww3_grid.inp, on second active line) 
-      IF (NTHI.NE.NTH) GOTO 2007
-
-      IF ((FR1-FREQ(1))/FR1.GT. 0.03) THEN 
-        DO J=1,MIN(NK1,NK)
-          IF (ABS(FREQ(J)-FR1) .LT. ABS(FREQ(IFMIN)-FR1)) THEN 
-            IFMIN=J
-            END IF
-          END DO  
-        END IF
-!     
-      IF ((FREQ(1)-FR1)/FR1.GT. 0.03) THEN 
-        DO J=1,MIN(NK,NK1)
-          IF (ABS(FREQ(J)-FR1*XFR**(J-1)) .LT. ABS(FREQ(IFMIN2)-FR1)) THEN 
-            IFMIN2=J
-            END IF
-          END DO  
-        END IF
-!
-      IF ((FREQ(NK1)-FR1*XFR**(NK-1))/FREQ(NK1) .GT.0.03) THEN 
-        DO J=1,NK
-            IF (ABS(FREQ(J)-FR1*XFR**(NK1-1)) .LT. ABS(FREQ(IFMAX)-FR1*XFR**(NK1-1))) THEN 
-            IFMAX=J
-            END IF
-          END DO 
-        END IF 
-! 
       IERR=0
       ITIME=0
 !
@@ -413,22 +386,14 @@
 !
             READ(200+IP,'(A1,A10,A1,2F7.2,F10.1,F7.2,F6.1,F7.2,F6.1)') &
               space,buoyname,space,LATS(IP),LONS(IP),depth,U10,Udir,Curr,Currdir
-            READ(200+IP,*,IOSTAT=IERR) SPEC2D 
-              IF (IFMIN2.GT.1) THEN 
-!
-!  Fills in the low frequency end of the spectrum
-!
-              ABPIN(1:(IFMIN2-1)*NTH,IP)=0.
-              END IF
-            DO I=IFMIN,IFMAX
-              DO J=1,NTH
-                ABPIN((I-IFMIN+(IFMIN2-1))*NTH+J,IP)=SPEC2D(I,J)*tpiinv
+            READ(200+IP,*,IOSTAT=IERR) SPEC2D
+!micah edit: straight copy at the source's own native resolution - no
+!  alignment/padding against the model's grid (see note above).
+            DO I=1,NK1
+              DO J=1,NTH1
+                ABPIN((I-1)*NTH1+J,IP)=SPEC2D(I,J)*tpiinv
                 END DO
               END DO
-           IF (IFMAX-IFMIN+IFMIN2.LT.NK1) THEN 
-        !IF (VERBOSE.EQ.1) WRITE(NDSO,*) 'FILLING TAIL',IFMAX-IFMIN,NK1,IFMAX-IFMIN+(IFMIN2-1)
-             ABPIN((IFMAX-IFMIN+IFMIN2)*NTH+1:NK1*NTH,IP)=0.
-             END IF 
            END IF  ! ned of test on IERR
          END DO
 !
@@ -438,8 +403,11 @@
          IF (ITIME.EQ.0) THEN 
 ! Correction for rounding error in ASCII files ... 
            IF (ABS(THETA(1)-0.5*PI).LT.0.01) THETA(1)=0.5*PI
-! Writes header in nest.ww3 file 
-           WRITE(NDSB) IDSTRBC, VERBPTBC, NK1, NTH, XFR, FREQ(1), &
+! Writes header in nest.ww3 file
+!micah edit: NTH1/XFR1 (source's own), not the model's NTH/XFR - see
+!  note above. When source and model already match, NTH1==NTH and
+!  XFR1==XFR, so this is a no-op for previously-working configurations.
+           WRITE(NDSB) IDSTRBC, VERBPTBC, NK1, NTH1, XFR1, FREQ(1), &
                        MOD(2.5*PI-THETA(1),TPI), NBO
              IPBPO(:,:)=1
              RDBPO(:,1)=1.
@@ -528,17 +496,8 @@ STOP
       WRITE (NDSE,1002) IERR
       CALL EXTCDE ( 62 )
 !
- 2006 CONTINUE
-      WRITE (NDSE,1006) XFR
-      CALL EXTCDE ( 66 )
-!
- 2007 CONTINUE
-      WRITE (NDSE,1007) NTH, NTHI
-      CALL EXTCDE ( 67 )
-!
- 2008 CONTINUE
-      WRITE (NDSE,1008) NK, NKI
-      CALL EXTCDE ( 68 )
+!micah edit: 2006/2007/2008 (XFR/NTH/NK mismatch vs the model's own
+!  grid) removed - no longer fatal, see the header-write note above.
 !
   901 FORMAT (/' *** WAVEWATCH-III ERROR IN W3IOBC :'/                &
                '     ILEGAL IDSTR, READ : ',A/                        &
@@ -552,16 +511,6 @@ STOP
  1002 FORMAT (/' *** WAVEWATCH III ERROR IN W3BOUND: '/               &
                '     ERROR IN READING ',A,' FROM INPUT FILE'/         &
                '     IOSTAT =',I5/)
-!
- 1006 FORMAT (/' *** WAVEWATCH III ERROR IN W3BOUND: '/               &
-               '     ILLEGAL XFR, XFR =',F12.6/)
-!
- 1007 FORMAT (/' *** WAVEWATCH III ERROR IN W3BOUND: '/               &
-               '     ILLEGAL NTH, NTH =',I3,' DIFFERS FROM NTHI =',I3/)
-!
- 1008 FORMAT (/' *** WAVEWATCH III ERROR IN W3BOUND: '/               &
-               '     ILLEGAL NK, NK =',I3,' DIFFERS FROM NKI =',I3/   &
-               '     IT WILL BE MANAGED SOON BY SPCONV')
 !
 !/
 !/ End of W3BOUND ---------------------------------------------------- /

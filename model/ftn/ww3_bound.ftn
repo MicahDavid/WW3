@@ -177,7 +177,9 @@
 !
 ! 3. Read input file
 !
-      OPEN(NDSI,FILE='ww3_bound.inp',status='old')
+!      OPEN(NDSI,FILE='ww3_bound.inp',status='old')
+!micah edit
+      OPEN(NDSI,FILE='../inp/bound.inp',status='old')
       READ (NDSI,'(A)',END=2001,ERR=2002) COMSTR
       IF (COMSTR.EQ.' ') COMSTR = '$'
       CALL NEXTLN ( COMSTR , NDSI , NDSE )

@@ -325,8 +325,16 @@
 !  slot 1's (696-sized) storage, causing a shape mismatch later against
 !  VA2 (1044-sized). Explicitly allocate slot 2 first, the same way
 !  ww3_shel does via W3DIMW before ever touching VA (w3initmd.ftn).
+!micah edit: W3DIMW's own FL_ALL/DINIT assignments go through the bare
+!  module pointer, not WDATAS(IMOD)%..., so they write through
+!  whatever slot that pointer currently points at - which is still
+!  slot 1 unless W3SETW has already been called for slot 2 at least
+!  once. Call it here first (harmless pre-allocation - W3SETW skips
+!  re-pointing VA itself when DINIT is false) purely to re-associate
+!  the DINIT/FL_ALL pointers with slot 2 before W3DIMW sets them.
       CALL W3SETG ( 2, 6, 6 )
       CALL W3SETO ( 2, 6, 6 )
+      CALL W3SETW ( 2, 6, 6 )
       WRITE(*,*) 'MICAHDBG before W3DIMW(2,..): NSPEC=',NSPEC,        &
                   ' NSEA=',NSEA,' NSPEC2=',NSPEC2
       FLUSH(6)

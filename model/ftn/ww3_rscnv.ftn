@@ -216,18 +216,17 @@
 !
 ! 5.  Read the old restart file, bound to slot 1 ---------------------- *
 !
-!micah edit TEMPORARY DIAGNOSTIC: bind to slot 2 (36-dir) instead of
-!  slot 1 (24-dir) to directly test whether the restart file's own
-!  declared NSPEC=1044 actually matches the 36-direction grid, as a
-!  cross-check on the "CONFLICTING NSPEC" error reported against the
-!  24-direction grid - using the same already-proven W3IORS call
-!  rather than hand-parsing the binary header. REVERT to 1 afterward.
-      CALL W3SETG ( 2, 6, 6 )
-      CALL W3SETW ( 2, 6, 6 )
-      CALL W3SETO ( 2, 6, 6 )
+      CALL W3SETG ( 1, 6, 6 )
+      CALL W3SETW ( 1, 6, 6 )
+      CALL W3SETO ( 1, 6, 6 )
+!micah edit: W3IORS builds the restart filename from FILEXT, the same
+!  per-model attribute the 'ww3.old' FEXT argument set when reading
+!  mod_def.ww3.old above - left as-is it would look for
+!  restart.ww3.old instead of the real restart.ww3. Reset it before
+!  reading the restart file.
       FILEXT = 'ww3'
       DUMFPI = 0.
-      CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 2 )
+      CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
       WRITE (*,905) TIME
 !
       ALLOCATE ( WLV1(NSEA1) )

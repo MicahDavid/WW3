@@ -84,6 +84,14 @@
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
       USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC, &
                           FNMPRE
+!micah edit: IRQRS holds MPI async-request handles from a UST/USTDIR/
+!  FPIS exchange step (w3initmd.ftn) that only a full ww3_shel run
+!  performs - this program never posts those requests, so W3IORS's
+!  own MPI_WAITALL(NRQRS,IRQRS,...) on the 'HOT' write path hits an
+!  unassociated pointer. NRQRS defaults to 0 (w3odatmd.ftn), so the
+!  wait is a genuine no-op once IRQRS is associated with anything -
+!  program doesn't touch UST/FPIS either way (see header notes).
+!/MPI      USE W3ODATMD, ONLY: NRQRS, IRQRS
       USE W3IOGRMD, ONLY: W3IOGR
       USE W3IORSMD, ONLY: W3IORS
       USE W3CSPCMD, ONLY: W3CSPC
@@ -386,6 +394,11 @@
       VA(:,1:NSEA1) = VA2
       WLV(1:NSEA1)  = WLV1
       TIME = SAVTIME
+!micah edit: see the IRQRS import note above - give W3IORS a validly
+!  associated (if never actually used, NRQRS=0) pointer instead of an
+!  unassociated one
+!/MPI      ALLOCATE ( IRQRS(1) )
+!/MPI      IRQRS(1) = MPI_REQUEST_NULL
       CALL W3IORS ( 'HOT', NDSR, DUMFPI, INTYPE, 2 )
       WRITE (*,906)
 !

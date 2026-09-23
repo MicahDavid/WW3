@@ -852,6 +852,8 @@
   progs="$progs ww3_multi_esmf  ww3_uprstr"
   #micah edit: restart spectral-resolution converter (see ww3_rscnv.ftn)
   progs="$progs ww3_rscnv"
+  #micah edit: restart-file NaN/corruption checker (see ww3_rscheck.ftn)
+  progs="$progs ww3_rscheck"
   progs="$progs libww3"
 
   for prog in $progs
@@ -1079,6 +1081,16 @@
             source="$memcode $pdlibcode $pdlibyow $flx $ln $st $nl $bt $ic $is $db $tr $bs $xx $uostmd"
                 IO='w3iogrmd w3iogomd w3iorsmd'
                aux="constants w3servmd w3timemd w3arrymd w3dispmd w3cspcmd w3gsrumd"
+               aux="$aux w3parall" ;;
+     #micah edit: restart-file NaN/corruption checker - diagnostic only,
+     #  same restart I/O needs as ww3_uprstr, no regridding
+     ww3_rscheck) IDstring='Restart file NaN/corruption checker'
+              core=
+	          data='wmmdatmd w3triamd w3gdatmd w3wdatmd w3adatmd w3idatmd w3odatmd'
+              prop=
+            source="$memcode $pdlibcode $pdlibyow $flx $ln $st $nl $bt $ic $is $db $tr $bs $xx $uostmd"
+                IO='w3iogrmd w3iogomd w3iorsmd'
+               aux="constants w3servmd w3timemd w3arrymd w3dispmd w3gsrumd"
                aux="$aux w3parall" ;;
     esac
 

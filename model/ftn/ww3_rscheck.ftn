@@ -1,0 +1,103 @@
+#include "w3macros.h"
+!/ ------------------------------------------------------------------- /
+      PROGRAM W3RSCHECK
+!/
+!/                  +-----------------------------------+
+!/                  | WAVEWATCH III              micah  |
+!/                  |                        FORTRAN 90 |
+!/                  | First version:        23-Sep-2026 |
+!/                  +-----------------------------------+
+!/
+!/    23-Sep-2026 : Original code                        ( version 1.00 )
+!/
+!/  1. Purpose :
+!
+!     Diagnostic only, not a permanent tool. Reads mod_def.ww3 and
+!     restart.ww3 from the current directory via the exact same
+!     W3IOGR/W3IORS calls ww3_shel itself uses, then scans VA for NaN
+!     or implausibly large values - to determine whether a restart
+!     file is genuinely corrupt on disk, independent of anything
+!     ww3_shel's own initialization does around the read.
+!
+!/ ------------------------------------------------------------------- /
+      USE CONSTANTS
+!
+      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NSPEC, NSEA, FILEXT
+      USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, TIME
+      USE W3ADATMD, ONLY: W3NAUX, W3SETA
+!/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
+      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NAPROC, IAPROC, FNMPRE
+      USE W3IOGRMD, ONLY: W3IOGR
+      USE W3IORSMD, ONLY: W3IORS
+      IMPLICIT NONE
+!/MPI      INCLUDE "mpif.h"
+!/
+      INTEGER   :: NDSM, NDSR, ISEA, IS, INTYPE, I1, I2, NBAD, NCHK
+      INTEGER   :: IERR_MPI
+      REAL      :: DUMFPI
+!/
+      WRITE (*,900)
+!
+      CALL W3NMOD ( 1, 6, 6 )
+      CALL W3NDAT (    6, 6 )
+      CALL W3NAUX (    6, 6 )
+      CALL W3NOUT (    6, 6 )
+!
+      CALL W3SETO ( 1, 6, 6 )
+!/SHRD      NAPROC = 1
+!/SHRD      IAPROC = 1
+!/MPI      CALL MPI_INIT ( IERR_MPI )
+!/MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NAPROC, IERR_MPI )
+!/MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, IAPROC, IERR_MPI )
+!/MPI      IAPROC = IAPROC + 1
+!
+!/NL1      CALL W3SETA ( 1, 6, 6 )
+!/NL1      NSPECX = 0
+!/NL1      NSPECY = 0
+!
+      NDSM   = 20
+      NDSR   = 21
+!
+      CALL W3SETG ( 1, 6, 6 )
+      CALL W3IOGR ( 'READ', NDSM, 1 )
+      CALL W3SETW ( 1, 6, 6 )
+      CALL W3SETA ( 1, 6, 6 )
+      CALL W3SETO ( 1, 6, 6 )
+      WRITE (*,901) NSPEC, NSEA
+!
+      FILEXT = 'ww3'
+      I1 = LEN_TRIM(FNMPRE)
+      I2 = MAX ( 4*NSPEC, 4*21 )
+      OPEN ( NDSR+1, FILE=FNMPRE(:I1)//'restart.'//TRIM(FILEXT),      &
+             FORM='UNFORMATTED', ACCESS='STREAM', STATUS='OLD' )
+      READ ( NDSR+1, POS=1_8+I2 ) TIME
+      CLOSE ( NDSR+1 )
+!
+      DUMFPI = 0.
+      CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
+      WRITE (*,902) TIME
+!
+      NBAD = 0
+      NCHK = 0
+      DO ISEA=1, NSEA
+        DO IS=1, NSPEC
+          NCHK = NCHK + 1
+          IF ( VA(IS,ISEA) .NE. VA(IS,ISEA) .OR.                       &
+               ABS(VA(IS,ISEA)) .GT. 1.0E10 ) THEN
+              NBAD = NBAD + 1
+            END IF
+          END DO
+        END DO
+      WRITE (*,903) NBAD, NCHK
+!
+      STOP
+!
+  900 FORMAT (/'  *** WAVEWATCH III restart file check ***'/)
+  901 FORMAT ('  grid : NSPEC=',I6,' NSEA=',I8)
+  902 FORMAT ('  Restart time : ',2I9)
+  903 FORMAT (/'  Bad (NaN/implausible) values : ',I10,' of ',I10/)
+!/
+!/ End of W3RSCHECK ------------------------------------------------------ /
+!/
+      END PROGRAM W3RSCHECK
+!/ ------------------------------------------------------------------- /

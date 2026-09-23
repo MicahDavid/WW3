@@ -132,6 +132,7 @@
   reg_programs="$reg_programs gx_outp"
   reg_programs="$reg_programs ww3_uprstr"
   reg_programs="$reg_programs ww3_rscnv"
+  reg_programs="$reg_programs ww3_rscheck"
   reg_programs="$reg_programs libww3"
 
 # PRNC OUNF OUNP BOUNC TRNC

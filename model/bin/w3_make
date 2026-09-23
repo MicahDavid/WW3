@@ -148,6 +148,8 @@
   reg_programs="$reg_programs ww3_uprstr"
   #micah edit: restart spectral-resolution converter (see ww3_rscnv.ftn)
   reg_programs="$reg_programs ww3_rscnv"
+  #micah edit: restart-file NaN/corruption checker (see ww3_rscheck.ftn)
+  reg_programs="$reg_programs ww3_rscheck"
 
 # PRNC OUNF OUNP BOUNC TRNC
 # cdf_programs = NetCDF programs

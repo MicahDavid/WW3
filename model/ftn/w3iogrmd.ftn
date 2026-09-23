@@ -456,7 +456,6 @@
                 NBI, NFBPO, GNAME, FNAME0, FNAME1, FNAME2, FNAME3,    &
                 FNAME4, FNAME5, FNAME6, FNAME7, FNAMEP, FNAMEG,       &
                 FNAMEF, FNAMEI
-                 ' MK=',MK,' NBI=',NBI,' NFBPO=',NFBPO ; FLUSH(6)
 !
 !/SMC          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
 !/SMC                     NCel, NUFc, NVFc, NRLv, MRFct

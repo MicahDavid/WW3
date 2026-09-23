@@ -80,6 +80,7 @@
                           SIG2, XFR, FR1, TH, ZB, DMIN, GNAME, FACHFE
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
       USE W3ADATMD, ONLY: W3NAUX, W3SETA
+!/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
       USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE
       USE W3IOGRMD, ONLY: W3IOGR
       USE W3IORSMD, ONLY: W3IORS
@@ -112,6 +113,23 @@
       WRITE (*,*) 'DEBUG: after W3NAUX' ; FLUSH(6)
       CALL W3NOUT (    6, 6 )
       WRITE (*,*) 'DEBUG: after W3NOUT' ; FLUSH(6)
+!
+!micah edit: INSNL1/W3DMNL (called from W3IOGR when NL1 physics is
+!  active) sizes a set of ALLOCATE calls from NSPECX, a per-model
+!  W3ADATMD component that only W3DMNL itself ever sets (at the very
+!  end of that routine) and that otherwise has no default value. A
+!  freshly allocated model slot leaves it uninitialized; single-grid
+!  programs get away with this because freshly-allocated memory is
+!  usually zero-filled by the OS and ALLOCATE(array(0)) is legal, but
+!  with two grid slots allocated up front that assumption breaks,
+!  producing a wrongly-sized allocation and a later out-of-bounds
+!  write. Zero it explicitly for both slots before anything reads it.
+!/NL1      CALL W3SETA ( 1, 6, 6 )
+!/NL1      NSPECX = 0
+!/NL1      NSPECY = 0
+!/NL1      CALL W3SETA ( 2, 6, 6 )
+!/NL1      NSPECX = 0
+!/NL1      NSPECY = 0
 !
       NDSM   = 20
       NDSR   = 21

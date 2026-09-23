@@ -850,6 +850,8 @@
          ww3_outf ww3_outp ww3_trck ww3_trnc ww3_grib gx_outf gx_outp ww3_ounf 
          ww3_ounp ww3_gspl ww3_gint ww3_bound ww3_bounc ww3_systrk $tideprog"
   progs="$progs ww3_multi_esmf  ww3_uprstr"
+  #micah edit: restart spectral-resolution converter (see ww3_rscnv.ftn)
+  progs="$progs ww3_rscnv"
   progs="$progs libww3"
 
   for prog in $progs
@@ -1059,14 +1061,25 @@
              source="w3triamd w3srcemd $dsx $flx $ln $st $nl $bt $ic $is $db $tr $bs $xx $refcode $igcode $uostmd"
                  IO='w3iogrmd w3iogomd w3iopomd w3iotrmd w3iorsmd w3iobcmd w3iosfmd w3partmd'
                 aux="constants w3servmd w3timemd $tidecode w3arrymd w3dispmd w3cspcmd w3gsrumd" ;;
-     ww3_uprstr) IDstring='Update Restart File' 
-              core= 
-	          data='wmmdatmd w3triamd w3gdatmd w3wdatmd w3adatmd w3idatmd w3odatmd' 
-              prop= 
+     ww3_uprstr) IDstring='Update Restart File'
+              core=
+	          data='wmmdatmd w3triamd w3gdatmd w3wdatmd w3adatmd w3idatmd w3odatmd'
+              prop=
             source="$memcode $pdlibcode $pdlibyow $flx $ln $st $nl $bt $ic $is $db $tr $bs $xx $uostmd"
-                IO='w3iogrmd w3iogomd w3iorsmd' 
-               aux="constants w3servmd w3timemd w3arrymd w3dispmd w3gsrumd" 
-               aux="$aux w3parall" ;; 
+                IO='w3iogrmd w3iogomd w3iorsmd'
+               aux="constants w3servmd w3timemd w3arrymd w3dispmd w3gsrumd"
+               aux="$aux w3parall" ;;
+     #micah edit: restart spectral-resolution converter - same restart
+     #  I/O needs as ww3_uprstr above, plus w3cspcmd for W3CSPC (the
+     #  spectral regrid call this one makes that ww3_uprstr doesn't)
+     ww3_rscnv) IDstring='Restart spectral resolution converter'
+              core=
+	          data='wmmdatmd w3triamd w3gdatmd w3wdatmd w3adatmd w3idatmd w3odatmd'
+              prop=
+            source="$memcode $pdlibcode $pdlibyow $flx $ln $st $nl $bt $ic $is $db $tr $bs $xx $uostmd"
+                IO='w3iogrmd w3iogomd w3iorsmd'
+               aux="constants w3servmd w3timemd w3arrymd w3dispmd w3cspcmd w3gsrumd"
+               aux="$aux w3parall" ;;
     esac
 
     # if esmf is included in program name, then

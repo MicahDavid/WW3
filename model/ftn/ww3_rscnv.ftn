@@ -76,11 +76,11 @@
 !/ ------------------------------------------------------------------- /
       USE CONSTANTS
 !
-      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, SIG,  &
-                          SIG2, XFR, FR1, TH, ZB, DMIN, GNAME, FACHFE, &
-                          FILEXT
+      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, NSEAL,&
+                          SIG, SIG2, XFR, FR1, TH, ZB, DMIN, GNAME,    &
+                          FACHFE, FILEXT
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
-      USE W3ADATMD, ONLY: W3NAUX, W3SETA
+      USE W3ADATMD, ONLY: W3NAUX, W3SETA, NSEALM
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
       USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC, &
                           FNMPRE
@@ -89,6 +89,14 @@
       USE W3CSPCMD, ONLY: W3CSPC
       USE W3DISPMD, ONLY: N1MAX, ECG1, EWN1, DSIE
       USE W3SERVMD, ONLY: EXTCDE
+!micah edit: SET_UP_NSEAL_NSEALM - ww3_shel calls this (w3initmd.ftn)
+!  to set the per-slot module NSEAL/NSEALM before any W3IORS call;
+!  this program never did, leaving NSEAL=0 for both slots, which made
+!  W3IORS's own restart-read loop (DO JSEA=1,NSEAL) run zero
+!  iterations - VA was silently never actually read from the old
+!  restart, so the whole conversion has been regridding an all-zero
+!  spectrum (see project notes for how this was found)
+      USE W3PARALL, ONLY: SET_UP_NSEAL_NSEALM
       IMPLICIT NONE
 !/MPI      INCLUDE "mpif.h"
 !/
@@ -97,7 +105,7 @@
 !/
       INTEGER   :: NDSM, NDSR, ISEA, IK, ITH, IS, INTYPE, I1, I2
       INTEGER   :: NK1, NTH1, NSEA1, NSPEC1, NK2, NTH2, NSEA2, NSPEC2
-      INTEGER   :: IERR_MPI, NBAD
+      INTEGER   :: IERR_MPI, NBAD, NSEALout, NSEALMout
       INTEGER   :: SAVTIME(2)
       REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
       REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
@@ -159,6 +167,9 @@
       CALL W3SETW ( 1, 6, 6 )
       CALL W3SETA ( 1, 6, 6 )
       CALL W3SETO ( 1, 6, 6 )
+      CALL SET_UP_NSEAL_NSEALM ( NSEALout, NSEALMout )
+      NSEAL  = NSEALout
+      NSEALM = NSEALMout
       NK1    = NK
       NTH1   = NTH
       NSEA1  = NSEA
@@ -175,6 +186,9 @@
       CALL W3SETW ( 2, 6, 6 )
       CALL W3SETA ( 2, 6, 6 )
       CALL W3SETO ( 2, 6, 6 )
+      CALL SET_UP_NSEAL_NSEALM ( NSEALout, NSEALMout )
+      NSEAL  = NSEALout
+      NSEALM = NSEALMout
       NK2    = NK
       NTH2   = NTH
       NSEA2  = NSEA

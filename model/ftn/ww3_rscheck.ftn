@@ -26,18 +26,23 @@
 !  -fpe0 without the check itself trapping first
       USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
 !
-      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NSPEC, NSEA, FILEXT
+      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NSPEC, NSEA, NSEAL, FILEXT
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, TIME
-      USE W3ADATMD, ONLY: W3NAUX, W3SETA
+      USE W3ADATMD, ONLY: W3NAUX, W3SETA, NSEALM
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
       USE W3ODATMD, ONLY: W3NOUT, W3SETO, NAPROC, IAPROC, FNMPRE
       USE W3IOGRMD, ONLY: W3IOGR
       USE W3IORSMD, ONLY: W3IORS
+!micah debug: ww3_shel sets NSEAL/NSEALM via this call before any
+!  W3IORS call (w3initmd.ftn) - this program never did, leaving
+!  NSEAL=0, which made W3IORS's own read loop (DO JSEA=1,NSEAL) run
+!  zero iterations. VA was never actually read - see ww3_rscnv.ftn
+      USE W3PARALL, ONLY: SET_UP_NSEAL_NSEALM
       IMPLICIT NONE
 !/MPI      INCLUDE "mpif.h"
 !/
       INTEGER   :: NDSM, NDSR, ISEA, IS, INTYPE, I1, I2, NBAD, NCHK
-      INTEGER   :: IERR_MPI
+      INTEGER   :: IERR_MPI, NSEALout, NSEALMout
       REAL      :: DUMFPI
 !/
       WRITE (*,900)
@@ -67,6 +72,9 @@
       CALL W3SETW ( 1, 6, 6 )
       CALL W3SETA ( 1, 6, 6 )
       CALL W3SETO ( 1, 6, 6 )
+      CALL SET_UP_NSEAL_NSEALM ( NSEALout, NSEALMout )
+      NSEAL  = NSEALout
+      NSEALM = NSEALMout
       WRITE (*,901) NSPEC, NSEA
 !
       FILEXT = 'ww3'

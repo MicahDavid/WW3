@@ -104,17 +104,6 @@
 !/
 !/ ------------------------------------------------------------------- /
 !
-!micah edit: this build has DIST/MPI active, and W3IORS (restart file
-!  I/O) needs MPI initialized even for a single-process run - neither
-!  ww3_bound nor ww3_uprstr ever hit this because neither of them
-!  touches restart files. Same init sequence ww3_shel/ww3_multi use.
-!/SHRD      NAPROC = 1
-!/SHRD      IAPROC = 1
-!/MPI      CALL MPI_INIT ( IERR_MPI )
-!/MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NAPROC, IERR_MPI )
-!/MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, IAPROC, IERR_MPI )
-!/MPI      IAPROC = IAPROC + 1
-!
       WRITE (*,900)
 !
 ! 1.  Allocate two model slots ---------------------------------------- *
@@ -127,6 +116,24 @@
       WRITE (*,*) 'DEBUG: after W3NAUX' ; FLUSH(6)
       CALL W3NOUT (    6, 6 )
       WRITE (*,*) 'DEBUG: after W3NOUT' ; FLUSH(6)
+!
+!micah edit: this build has DIST/MPI active, and W3IORS (restart file
+!  I/O) needs MPI initialized even for a single-process run - neither
+!  ww3_bound nor ww3_uprstr ever hit this because neither of them
+!  touches restart files. Same init sequence/ordering ww3_shel uses:
+!  NAPROC/IAPROC are per-model pointers, so W3SETO(1,...) must run
+!  first to associate them with an allocated model slot before
+!  MPI_COMM_SIZE/MPI_COMM_RANK write into them (moving this block
+!  before any W3NMOD/W3SETO call, as originally written, crashed with
+!  "Null pointer in parameter size" - NAPROC/IAPROC were unassociated).
+      CALL W3SETO ( 1, 6, 6 )
+!/SHRD      NAPROC = 1
+!/SHRD      IAPROC = 1
+!/MPI      CALL MPI_INIT ( IERR_MPI )
+!/MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NAPROC, IERR_MPI )
+!/MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, IAPROC, IERR_MPI )
+!/MPI      IAPROC = IAPROC + 1
+      WRITE (*,*) 'DEBUG: after MPI init' ; FLUSH(6)
 !
 !micah edit: INSNL1/W3DMNL (called from W3IOGR when NL1 physics is
 !  active) sizes a set of ALLOCATE calls from NSPECX, a per-model

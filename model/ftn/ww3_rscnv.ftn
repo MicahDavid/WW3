@@ -82,7 +82,8 @@
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
       USE W3ADATMD, ONLY: W3NAUX, W3SETA
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
-      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC
+      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC, &
+                          FNMPRE
       USE W3IOGRMD, ONLY: W3IOGR
       USE W3IORSMD, ONLY: W3IORS
       USE W3CSPCMD, ONLY: W3CSPC
@@ -225,6 +226,24 @@
 !  restart.ww3.old instead of the real restart.ww3. Reset it before
 !  reading the restart file.
       FILEXT = 'ww3'
+!
+!micah edit: for a 'FULL' restart (the normal kind, as opposed to a
+!  COLD/CALM one), W3IORS requires the caller's TIME to already match
+!  the file's own embedded time - normally supplied by the operator
+!  via ww3_shel.inp (see ww3_shel.ftn's TIME = TIME0), which this
+!  program has no equivalent of. Pre-read just that one field (2
+!  integers, at the same byte offset W3IORS itself computes from
+!  LRECL) via a separate STREAM-access open, and set TIME to match
+!  before the real call, so the conversion isn't tied to any specific
+!  expected time - just whatever the file actually has.
+      I1 = LEN_TRIM(FNMPRE)
+      I2 = MAX ( 4*NSPEC1, 4*21 )
+      OPEN ( NDSR+1, FILE=FNMPRE(:I1)//'restart.'//TRIM(FILEXT),      &
+             FORM='UNFORMATTED', ACCESS='STREAM', STATUS='OLD' )
+      READ ( NDSR+1, POS=1_8+I2 ) TIME
+      CLOSE ( NDSR+1 )
+      WRITE (*,*) 'DEBUG: pre-read restart TIME=',TIME ; FLUSH(6)
+!
       DUMFPI = 0.
       CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
       WRITE (*,905) TIME

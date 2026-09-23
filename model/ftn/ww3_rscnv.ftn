@@ -295,6 +295,18 @@
                     NSEA1, 6, 6, FACHFE )
       DEALLOCATE ( E1 )
 !
+!micah edit: SIG2 (used just below) is a per-model-slot pointer, same
+!  category as the TIME bug above - it was still slot 1's SIG2 here
+!  (sized NSPEC1=NK1*NTH1), while IS below is computed from NK2/NTH2
+!  and ranges up to NSPEC2. For every IS beyond NSPEC1, that read past
+!  the end of slot 1's SIG2 array entirely (real out-of-bounds memory
+!  access, not just a wrong-but-in-bounds value), producing NaN/garbage
+!  for ~9% of the converted spectrum in practice. Switch to slot 2
+!  before this conversion, not after, so SIG2 is correctly sized.
+      CALL W3SETG ( 2, 6, 6 )
+      CALL W3SETW ( 2, 6, 6 )
+      CALL W3SETO ( 2, 6, 6 )
+!
 ! 9.  Convert energy density -> action density (slot 2 units) -------- *
 !     Same CGTAB reused - same depths/frequencies on both grids.
 !
@@ -331,11 +343,10 @@
           CALL EXTCDE ( 5 )
         END IF
 !
-! 10. Switch to slot 2, load the converted spectra, write restart ---- *
+! 10. Load the converted spectra into slot 2 (already active), write -- *
+!     restart. Slot 2 was activated before step 9 above, not here -
+!     see the note there.
 !
-      CALL W3SETG ( 2, 6, 6 )
-      CALL W3SETW ( 2, 6, 6 )
-      CALL W3SETO ( 2, 6, 6 )
       VA(:,1:NSEA1) = VA2
       WLV(1:NSEA1)  = WLV1
       TIME = SAVTIME
@@ -355,7 +366,7 @@
   905 FORMAT ('  Restart time : ',2I9)
   906 FORMAT (/'  Wrote converted restart - rename restartNNN.ww3 ',  &
                'to restart.ww3 before starting the new grid.'/)
-  907 FORMAT (/' *** ERROR : ',I8,' of ',I8,' regridded spectral ',   &
+  907 FORMAT (/' *** ERROR : ',I10,' of ',I10,' regridded spectral ',  &
                'values are NaN or implausibly large - the converted', &
                ' restart was NOT written ***'/)
 !/

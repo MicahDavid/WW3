@@ -1,0 +1,268 @@
+#include "w3macros.h"
+!/ ------------------------------------------------------------------- /
+      PROGRAM W3RSCNV
+!/
+!/                  +-----------------------------------+
+!/                  | WAVEWATCH III              micah  |
+!/                  |                        FORTRAN 90 |
+!/                  | First version:        23-Sep-2026 |
+!/                  +-----------------------------------+
+!/
+!/    23-Sep-2026 : Original code                        ( version 1.00 )
+!/
+!/    Copyright 2026 National Weather Service (NWS),
+!/       National Oceanic and Atmospheric Administration.  All rights
+!/       reserved.  WAVEWATCH III is a trademark of the NWS.
+!/       No unauthorized use without permission.
+!/
+!  1. Purpose :
+!
+!     Convert an existing restart.ww3 file to a different directional
+!     spectral discretization (e.g. NTH=24 -> NTH=36) using WAVEWATCH
+!     III's own W3CSPC spectral-regridding routine, so a freshly
+!     re-resolved grid can warm-start from a production restart instead
+!     of a cold start.
+!
+!  2. Method :
+!
+!     Two model "slots" are loaded via W3IOGR: slot 1 with the OLD
+!     grid's spectral discretization (read from mod_def.ww3.old), slot
+!     2 with the NEW grid's discretization (read from mod_def.ww3).
+!     Both must describe the exact same spatial grid/bathymetry -
+!     NSEA/NK/XFR/FR1 must match between them; only NTH is expected to
+!     differ (checked below, not assumed).
+!
+!     The existing restart.ww3 (old discretization) is read bound to
+!     slot 1 via W3IORS. Each sea point's action-density spectrum is
+!     converted to an energy spectrum (same unit conversion W3IOBC uses
+!     for boundary output, see w3iobcmd.ftn), regridded onto the new
+!     discretization via W3CSPC (the same routine W3IOBC already uses
+!     to reconcile mismatched nest/boundary files), converted back to
+!     action density, and written out as a new restart file bound to
+!     slot 2 via W3IORS. The group velocity needed for the action<->
+!     energy conversion is computed with a standalone dispersion-table
+!     lookup (same inlined method ww3_outp.ftn uses for output points),
+!     since this program never runs the full dynamical core.
+!
+!     Only the wave spectrum and water level are carried through
+!     explicitly; this program does not currently handle restart files
+!     that also carry ice/mud/other optional fields (see W3IORS) - if
+!     those switches are active for a given grid this will need
+!     extending.
+!
+!  3. Input files (fixed names, run from the grid's own exe/ directory,
+!     same convention as ww3_grid/ww3_shel/ww3_bound in this repo) :
+!
+!       mod_def.ww3.old    Old grid's model definition file.
+!       mod_def.ww3        New grid's model definition file.
+!       restart.ww3        Old-discretization restart file to convert.
+!
+!  4. Output :
+!
+!       restartNNN.ww3     New-discretization restart file (W3IORS's
+!                           own numbered-output convention) - rename to
+!                           restart.ww3 before starting the new grid.
+!
+!  5. Subroutines used :
+!
+!      Name      Type  Module    Description
+!     ----------------------------------------------------------------
+!      W3IOGR    Subr. W3IOGRMD  Reading model definition file.
+!      W3IORS    Subr. W3IORSMD  Reading/writing restart file.
+!      W3CSPC    Subr. W3CSPCMD  Spectral grid conversion.
+!      EXTCDE    Subr. W3SERVMD  Program abort.
+!     ----------------------------------------------------------------
+!
+!/ ------------------------------------------------------------------- /
+      USE CONSTANTS
+!
+      USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, SIG,  &
+                          SIG2, XFR, FR1, TH, ZB, DMIN, GNAME, FACHFE
+      USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
+      USE W3ADATMD, ONLY: W3NAUX, W3SETA
+      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE
+      USE W3IOGRMD, ONLY: W3IOGR
+      USE W3IORSMD, ONLY: W3IORS
+      USE W3CSPCMD, ONLY: W3CSPC
+      USE W3DISPMD, ONLY: N1MAX, ECG1, EWN1, DSIE
+      USE W3SERVMD, ONLY: EXTCDE
+      IMPLICIT NONE
+!/
+!/ ------------------------------------------------------------------- /
+!/ Local parameters
+!/
+      INTEGER   :: NDSM, NDSR, ISEA, IK, ITH, IS, INTYPE, I1, I2
+      INTEGER   :: NK1, NTH1, NSEA1, NSPEC1, NK2, NTH2, NSEA2, NSPEC2
+      REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
+      REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
+      REAL, ALLOCATABLE :: CGTAB(:,:)
+      REAL, ALLOCATABLE :: E1(:,:), E2(:,:), VA2(:,:), WLV1(:)
+!/
+!/ ------------------------------------------------------------------- /
+!
+      WRITE (*,900)
+!
+! 1.  Allocate two model slots ---------------------------------------- *
+!
+      CALL W3NMOD ( 2, 6, 6 )
+      CALL W3NDAT (    6, 6 )
+      CALL W3NAUX (    6, 6 )
+      CALL W3NOUT (    6, 6 )
+!
+      NDSM   = 20
+      NDSR   = 21
+!
+! 2.  Read the OLD grid definition into slot 1 ------------------------ *
+!
+      CALL W3SETG ( 1, 6, 6 )
+      CALL W3IOGR ( 'READ', NDSM, 1, 'ww3.old' )
+      CALL W3SETW ( 1, 6, 6 )
+      CALL W3SETA ( 1, 6, 6 )
+      CALL W3SETO ( 1, 6, 6 )
+      NK1    = NK
+      NTH1   = NTH
+      NSEA1  = NSEA
+      NSPEC1 = NSPEC
+      XFR1   = XFR
+      FR11   = FR1
+      TH11   = TH(1)
+      WRITE (*,901) 'OLD', TRIM(GNAME), NK1, NTH1, NSEA1
+!
+! 3.  Read the NEW grid definition into slot 2 ------------------------ *
+!
+      CALL W3SETG ( 2, 6, 6 )
+      CALL W3IOGR ( 'READ', NDSM, 2 )
+      CALL W3SETW ( 2, 6, 6 )
+      CALL W3SETA ( 2, 6, 6 )
+      CALL W3SETO ( 2, 6, 6 )
+      NK2    = NK
+      NTH2   = NTH
+      NSEA2  = NSEA
+      NSPEC2 = NSPEC
+      XFR2   = XFR
+      FR12   = FR1
+      TH12   = TH(1)
+      WRITE (*,901) 'NEW', TRIM(GNAME), NK2, NTH2, NSEA2
+!
+! 4.  Sanity checks - only NTH is expected to differ ------------------ *
+!
+      IF ( NSEA1 .NE. NSEA2 ) THEN
+          WRITE (*,902) 'NSEA', NSEA1, NSEA2
+          CALL EXTCDE ( 1 )
+        END IF
+      IF ( NK1 .NE. NK2 ) THEN
+          WRITE (*,902) 'NK', NK1, NK2
+          CALL EXTCDE ( 2 )
+        END IF
+      IF ( ABS(XFR1-XFR2) .GT. 0.0005 ) THEN
+          WRITE (*,903) 'XFR', XFR1, XFR2
+          CALL EXTCDE ( 3 )
+        END IF
+      IF ( ABS(FR11-FR12) .GT. 0.0005*FR11 ) THEN
+          WRITE (*,903) 'FR1', FR11, FR12
+          CALL EXTCDE ( 4 )
+        END IF
+      IF ( NTH1 .EQ. NTH2 ) THEN
+          WRITE (*,904)
+        END IF
+!
+! 5.  Read the old restart file, bound to slot 1 ---------------------- *
+!
+      CALL W3SETG ( 1, 6, 6 )
+      CALL W3SETW ( 1, 6, 6 )
+      CALL W3SETO ( 1, 6, 6 )
+      DUMFPI = 0.
+      CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
+      WRITE (*,905) TIME
+!
+      ALLOCATE ( WLV1(NSEA1) )
+      WLV1   = WLV(1:NSEA1)
+!
+! 6.  Build the per-point, per-frequency group velocity table -------- *
+!     Standalone dispersion-relation lookup, same inlined table method
+!     ww3_outp.ftn uses for output points. Old and new grids share the
+!     same bathymetry and frequency grid (checked above), so this
+!     table is valid both for the action->energy conversion (slot 1
+!     units, step 7) and the energy->action conversion (slot 2 units,
+!     step 9) below - it is not recomputed after switching slots.
+!
+      ALLOCATE ( CGTAB(NK1,NSEA1) )
+      DO ISEA=1, NSEA1
+        DEPTH  = MAX ( DMIN, WLV1(ISEA) - ZB(ISEA) )
+        SQRTH  = SQRT ( DEPTH )
+        DO IK=1, NK1
+          SIX  = SIG(IK) * SQRTH
+          I1   = INT ( SIX/DSIE )
+          IF ( I1 .LE. N1MAX ) THEN
+              I2  = I1 + 1
+              R1  = SIX/DSIE - REAL(I1)
+              R2  = 1. - R1
+              CGTAB(IK,ISEA) = ( R2*ECG1(I1) + R1*ECG1(I2) ) * SQRTH
+            ELSE
+              CGTAB(IK,ISEA) = 0.5 * GRAV / SIG(IK)
+            END IF
+          END DO
+        END DO
+!
+! 7.  Convert action density -> energy density (slot 1 units) -------- *
+!
+      ALLOCATE ( E1(NSPEC1,NSEA1) )
+      DO ISEA=1, NSEA1
+        DO IK=1, NK1
+          DO ITH=1, NTH1
+            IS = ITH + (IK-1)*NTH1
+            E1(IS,ISEA) = VA(IS,ISEA) * SIG2(IS) / CGTAB(IK,ISEA)
+            END DO
+          END DO
+        END DO
+!
+! 8.  Regrid every point's spectrum onto the new discretization ------ *
+!
+      ALLOCATE ( E2(NSPEC2,NSEA1) )
+      CALL W3CSPC ( E1, NK1, NTH1, XFR1, FR11, TH11,                  &
+                    E2, NK2, NTH2, XFR2, FR12, TH12,                  &
+                    NSEA1, 6, 6, FACHFE )
+      DEALLOCATE ( E1 )
+!
+! 9.  Convert energy density -> action density (slot 2 units) -------- *
+!     Same CGTAB reused - same depths/frequencies on both grids.
+!
+      ALLOCATE ( VA2(NSPEC2,NSEA1) )
+      DO ISEA=1, NSEA1
+        DO IK=1, NK2
+          DO ITH=1, NTH2
+            IS = ITH + (IK-1)*NTH2
+            VA2(IS,ISEA) = E2(IS,ISEA) * CGTAB(IK,ISEA) / SIG2(IS)
+            END DO
+          END DO
+        END DO
+      DEALLOCATE ( E2, CGTAB )
+!
+! 10. Switch to slot 2, load the converted spectra, write restart ---- *
+!
+      CALL W3SETG ( 2, 6, 6 )
+      CALL W3SETW ( 2, 6, 6 )
+      CALL W3SETO ( 2, 6, 6 )
+      VA(:,1:NSEA1) = VA2
+      WLV(1:NSEA1)  = WLV1
+      CALL W3IORS ( 'HOT', NDSR, DUMFPI, INTYPE, 2 )
+      WRITE (*,906)
+!
+      STOP
+!
+  900 FORMAT (/'  *** WAVEWATCH III restart spectral conversion ***'/)
+  901 FORMAT ('  ',A,' grid : ',A,' NK=',I3,' NTH=',I3,' NSEA=',I8)
+  902 FORMAT (/' *** ERROR : ',A,' differs between old/new grid (',   &
+               I8,' vs ',I8,') - only NTH may differ ***'/)
+  903 FORMAT (/' *** ERROR : ',A,' differs between old/new grid (',   &
+               F12.6,' vs ',F12.6,') - only NTH may differ ***'/)
+  904 FORMAT (/' *** WARNING : old and new NTH are identical - ',     &
+               'nothing to convert, but proceeding anyway ***'/)
+  905 FORMAT ('  Restart time : ',2I9)
+  906 FORMAT (/'  Wrote converted restart - rename restartNNN.ww3 ',  &
+               'to restart.ww3 before starting the new grid.'/)
+!/
+!/ End of W3RSCNV ------------------------------------------------------ /
+!/
+      END PROGRAM W3RSCNV
+!/ ------------------------------------------------------------------- /

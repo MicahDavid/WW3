@@ -145,7 +145,9 @@
   reg_programs="$reg_programs ww3_gint"
   reg_programs="$reg_programs gx_outf"
   reg_programs="$reg_programs gx_outp"
-  reg_programs="$reg_programs ww3_uprstr" 
+  reg_programs="$reg_programs ww3_uprstr"
+  #micah edit: restart spectral-resolution converter (see ww3_rscnv.ftn)
+  reg_programs="$reg_programs ww3_rscnv"
 
 # PRNC OUNF OUNP BOUNC TRNC
 # cdf_programs = NetCDF programs

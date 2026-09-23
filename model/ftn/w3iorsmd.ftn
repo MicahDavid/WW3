@@ -229,6 +229,10 @@
 !/ ------------------------------------------------------------------- /
       USE W3GDATMD, ONLY: W3SETG, W3SETREF
       USE W3ODATMD, ONLY: W3SETO
+!micah debug: temporary - IEEE_IS_NAN doesn't raise the invalid
+!  exception itself (unlike a plain /= comparison), needed to safely
+!  detect NaN under -fpe0 without the check itself trapping first
+      USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
 !/
       USE W3GDATMD, ONLY: NX, NY, NSEA, NSEAL, NSPEC, MAPSTA, MAPST2, &
                           GNAME, FILEXT, GTYPE, UNGTYPE
@@ -667,8 +671,10 @@
                 RPOS   = 1_8 + LRECL*(NREC-1_8)
                 READ (NDSR,POS=RPOS,ERR=802,IOSTAT=IERR)              &
                          (VA(I,JSEA),I=1,NSPEC)
-                IF ( ANY(VA(:,JSEA).NE.VA(:,JSEA)) .OR.                &
-                     ANY(ABS(VA(:,JSEA)).GT.1.0E10) ) THEN
+!micah debug: IEEE_IS_NAN instead of a plain /= comparison - Fortran
+!  doesn't guarantee .OR. short-circuits, so an ABS()/comparison-based
+!  check here would itself trap on a NaN operand under -fpe0
+                IF ( ANY(IEEE_IS_NAN(VA(:,JSEA))) ) THEN
                     MICAHNBAD = MICAHNBAD + 1
                     IF ( MICAHNBAD.LE.5 ) THEN
                         WRITE(*,*) 'MICAHDBG bad JSEA=',JSEA,' ISEA=', &

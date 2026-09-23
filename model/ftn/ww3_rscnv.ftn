@@ -77,29 +77,43 @@
       USE CONSTANTS
 !
       USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, SIG,  &
-                          SIG2, XFR, FR1, TH, ZB, DMIN, GNAME, FACHFE
+                          SIG2, XFR, FR1, TH, ZB, DMIN, GNAME, FACHFE, &
+                          FILEXT
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
       USE W3ADATMD, ONLY: W3NAUX, W3SETA
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
-      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE
+      USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC
       USE W3IOGRMD, ONLY: W3IOGR
       USE W3IORSMD, ONLY: W3IORS
       USE W3CSPCMD, ONLY: W3CSPC
       USE W3DISPMD, ONLY: N1MAX, ECG1, EWN1, DSIE
       USE W3SERVMD, ONLY: EXTCDE
       IMPLICIT NONE
+!/MPI      INCLUDE "mpif.h"
 !/
 !/ ------------------------------------------------------------------- /
 !/ Local parameters
 !/
       INTEGER   :: NDSM, NDSR, ISEA, IK, ITH, IS, INTYPE, I1, I2
       INTEGER   :: NK1, NTH1, NSEA1, NSPEC1, NK2, NTH2, NSEA2, NSPEC2
+      INTEGER   :: IERR_MPI
       REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
       REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
       REAL, ALLOCATABLE :: CGTAB(:,:)
       REAL, ALLOCATABLE :: E1(:,:), E2(:,:), VA2(:,:), WLV1(:)
 !/
 !/ ------------------------------------------------------------------- /
+!
+!micah edit: this build has DIST/MPI active, and W3IORS (restart file
+!  I/O) needs MPI initialized even for a single-process run - neither
+!  ww3_bound nor ww3_uprstr ever hit this because neither of them
+!  touches restart files. Same init sequence ww3_shel/ww3_multi use.
+!/SHRD      NAPROC = 1
+!/SHRD      IAPROC = 1
+!/MPI      CALL MPI_INIT ( IERR_MPI )
+!/MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NAPROC, IERR_MPI )
+!/MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, IAPROC, IERR_MPI )
+!/MPI      IAPROC = IAPROC + 1
 !
       WRITE (*,900)
 !
@@ -198,6 +212,12 @@
       CALL W3SETG ( 1, 6, 6 )
       CALL W3SETW ( 1, 6, 6 )
       CALL W3SETO ( 1, 6, 6 )
+!micah edit: W3IORS builds the restart filename from FILEXT, the same
+!  per-model attribute the 'ww3.old' FEXT argument set when reading
+!  mod_def.ww3.old above - left as-is it would look for
+!  restart.ww3.old instead of the real restart.ww3. Reset it before
+!  reading the restart file.
+      FILEXT = 'ww3'
       DUMFPI = 0.
       CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
       WRITE (*,905) TIME

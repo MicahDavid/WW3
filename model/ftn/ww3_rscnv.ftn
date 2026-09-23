@@ -98,6 +98,7 @@
       INTEGER   :: NDSM, NDSR, ISEA, IK, ITH, IS, INTYPE, I1, I2
       INTEGER   :: NK1, NTH1, NSEA1, NSPEC1, NK2, NTH2, NSEA2, NSPEC2
       INTEGER   :: IERR_MPI
+      INTEGER   :: SAVTIME(2)
       REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
       REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
       REAL, ALLOCATABLE :: CGTAB(:,:)
@@ -237,6 +238,14 @@
       CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )
       WRITE (*,905) TIME
 !
+!micah edit: TIME is a per-model-slot pointer (via W3WDATMD), not a
+!  plain variable - switching to slot 2 below (step 10) repoints it
+!  at slot 2's own TIME storage, which is never otherwise set and
+!  defaults to zero. Save the value read above so it can be restored
+!  into slot 2's TIME right before the new restart is written,
+!  otherwise the converted restart is written with a zeroed time.
+      SAVTIME = TIME
+!
       ALLOCATE ( WLV1(NSEA1) )
       WLV1   = WLV(1:NSEA1)
 !
@@ -307,6 +316,7 @@
       CALL W3SETO ( 2, 6, 6 )
       VA(:,1:NSEA1) = VA2
       WLV(1:NSEA1)  = WLV1
+      TIME = SAVTIME
       CALL W3IORS ( 'HOT', NDSR, DUMFPI, INTYPE, 2 )
       WRITE (*,906)
 !

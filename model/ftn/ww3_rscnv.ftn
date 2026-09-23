@@ -110,13 +110,9 @@
 ! 1.  Allocate two model slots ---------------------------------------- *
 !
       CALL W3NMOD ( 2, 6, 6 )
-      WRITE (*,*) 'DEBUG: after W3NMOD' ; FLUSH(6)
       CALL W3NDAT (    6, 6 )
-      WRITE (*,*) 'DEBUG: after W3NDAT' ; FLUSH(6)
       CALL W3NAUX (    6, 6 )
-      WRITE (*,*) 'DEBUG: after W3NAUX' ; FLUSH(6)
       CALL W3NOUT (    6, 6 )
-      WRITE (*,*) 'DEBUG: after W3NOUT' ; FLUSH(6)
 !
 !micah edit: this build has DIST/MPI active, and W3IORS (restart file
 !  I/O) needs MPI initialized even for a single-process run - neither
@@ -134,7 +130,6 @@
 !/MPI      CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NAPROC, IERR_MPI )
 !/MPI      CALL MPI_COMM_RANK ( MPI_COMM_WORLD, IAPROC, IERR_MPI )
 !/MPI      IAPROC = IAPROC + 1
-      WRITE (*,*) 'DEBUG: after MPI init' ; FLUSH(6)
 !
 !micah edit: INSNL1/W3DMNL (called from W3IOGR when NL1 physics is
 !  active) sizes a set of ALLOCATE calls from NSPECX, a per-model
@@ -159,15 +154,10 @@
 ! 2.  Read the OLD grid definition into slot 1 ------------------------ *
 !
       CALL W3SETG ( 1, 6, 6 )
-      WRITE (*,*) 'DEBUG: after W3SETG(1)' ; FLUSH(6)
       CALL W3IOGR ( 'READ', NDSM, 1, 'ww3.old' )
-      WRITE (*,*) 'DEBUG: after W3IOGR(old)' ; FLUSH(6)
       CALL W3SETW ( 1, 6, 6 )
-      WRITE (*,*) 'DEBUG: after W3SETW(1)' ; FLUSH(6)
       CALL W3SETA ( 1, 6, 6 )
-      WRITE (*,*) 'DEBUG: after W3SETA(1)' ; FLUSH(6)
       CALL W3SETO ( 1, 6, 6 )
-      WRITE (*,*) 'DEBUG: after W3SETO(1)' ; FLUSH(6)
       NK1    = NK
       NTH1   = NTH
       NSEA1  = NSEA
@@ -242,7 +232,6 @@
              FORM='UNFORMATTED', ACCESS='STREAM', STATUS='OLD' )
       READ ( NDSR+1, POS=1_8+I2 ) TIME
       CLOSE ( NDSR+1 )
-      WRITE (*,*) 'DEBUG: pre-read restart TIME=',TIME ; FLUSH(6)
 !
       DUMFPI = 0.
       CALL W3IORS ( 'READ', NDSR, DUMFPI, INTYPE, 1 )

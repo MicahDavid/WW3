@@ -418,8 +418,6 @@
       I      = LEN_TRIM(FILEXT)
       J      = LEN_TRIM(FNMPRE)
 !
-      WRITE(*,*) 'DEBUG-IOGR: about to open [',                      &
-                 FNMPRE(:J)//'mod_def.'//FILEXT(:I), ']' ; FLUSH(6)
       IF ( WRITE ) THEN
           OPEN (NDSM,FILE=FNMPRE(:J)//'mod_def.'//FILEXT(:I),         &
                 FORM='UNFORMATTED',ERR=800,IOSTAT=IERR)
@@ -427,7 +425,6 @@
           OPEN (NDSM,FILE=FNMPRE(:J)//'mod_def.'//FILEXT(:I),         &
                 FORM='UNFORMATTED',STATUS='OLD',ERR=800,IOSTAT=IERR)
         ENDIF
-      WRITE(*,*) 'DEBUG-IOGR: open done, IERR=', IERR ; FLUSH(6)
 !
       REWIND ( NDSM )
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 5, WRITE=', WRITE
@@ -459,8 +456,6 @@
                 NBI, NFBPO, GNAME, FNAME0, FNAME1, FNAME2, FNAME3,    &
                 FNAME4, FNAME5, FNAME6, FNAME7, FNAMEP, FNAMEG,       &
                 FNAMEF, FNAMEI
-      WRITE(*,*) 'DEBUG-IOGR: header read done, IERR=', IERR,         &
-                 ' NX=',NX,' NY=',NY,' NSEA=',NSEA,' MTH=',MTH,       &
                  ' MK=',MK,' NBI=',NBI,' NFBPO=',NFBPO ; FLUSH(6)
 !
 !/SMC          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
@@ -663,8 +658,6 @@
 
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                GTYPE, FLAGLL, ICLOSE
-      WRITE(*,*) 'DEBUG-IOGR: after GTYPE read, IERR=',IERR,          &
-                 ' GTYPE=',GTYPE ; FLUSH(6)
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.2'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 !!Li      IF (.NOT.GINIT) CALL W3DIMX ( IGRD, NX, NY, NSEA, NDSE, NDST )
@@ -742,7 +735,6 @@
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.7'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
             END SELECT !GTYPE
-      WRITE(*,*) 'DEBUG-IOGR: after GTYPE SELECT CASE reads' ; FLUSH(6)
 !
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.8'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -751,8 +743,6 @@
 !/DEBUGIOGR     FLUSH(740+IAPROC)
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                ZB, MAPTMP, MAPFS, MAPSF, TRFLAG
-      WRITE(*,*) 'DEBUG-IOGR: after ZB/MAPTMP/MAPFS/MAPSF read, IERR=', &
-                 IERR, ' TRFLAG=',TRFLAG ; FLUSH(6)
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.10'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 !
@@ -791,12 +781,10 @@
                CTHG0S, STEXU, STEYU, STEDU, IICEHMIN, IICEHINIT,      &
                IICEDISP, ICESCALES(1:4), NOLEAP, CMPRTRCK, IICEHFAC,  &
                IICEDDISP, IICEHDISP, IICEFDISP, BTBETA
-      WRITE(*,*) 'DEBUG-IOGR: after DTCFL block read, IERR=',IERR ; FLUSH(6)
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.14'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 
               READ(NDSM,END=801,ERR=802,IOSTAT=IERR)GRIDSHIFT
-      WRITE(*,*) 'DEBUG-IOGR: after GRIDSHIFT read, IERR=',IERR ; FLUSH(6)
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.15'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 !/SEC1         READ (NDSM) NITERSEC1
@@ -864,16 +852,11 @@
                XFR, FR1, SIG, SIG2, DSIP, DSII, DDEN, DDEN2, FTE,     &
                FTF, FTWN, FTTR, FTWL, FACTI1, FACTI2, FACHFA, FACHFE
         ELSE
-          WRITE(*,*) 'DEBUG-IOGR: before W3DIMS, SINIT=',SINIT,       &
-                     ' IGRD=',IGRD,' NK=',NK,' NTH=',NTH ; FLUSH(6)
           IF (.NOT.SINIT) CALL W3DIMS ( IGRD, NK, NTH, NDSE, NDST )
-          WRITE(*,*) 'DEBUG-IOGR: after W3DIMS' ; FLUSH(6)
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                MAPWN, MAPTH, DTH, TH, ESIN, ECOS, ES2, ESC, EC2,      &
                XFR, FR1, SIG, SIG2, DSIP, DSII, DDEN, DDEN2, FTE,     &
                FTF, FTWN, FTTR, FTWL, FACTI1, FACTI2, FACHFA, FACHFE
-          WRITE(*,*) 'DEBUG-IOGR: after spectral array read, IERR=',  &
-                     IERR ; FLUSH(6)
         END IF
 
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 10'
@@ -893,7 +876,6 @@
         ELSE
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 E3DF, P2MSF, US3DF,USSPF, USSP_WN
-      WRITE(*,*) 'DEBUG-IOGR: after E3DF read, IERR=',IERR ; FLUSH(6)
         END IF
 
       IF ( INXOUT .EQ. 'GRID' ) THEN
@@ -910,12 +892,9 @@
           WRITE (NDSM)                                                &
                XBPO, YBPO, RDBPO, IPBPO, ISBPO
         ELSE
-          WRITE(*,*) 'DEBUG-IOGR: before W3DMO5' ; FLUSH(6)
           CALL W3DMO5 ( IGRD, NDSE, NDST, 2 )
-          WRITE(*,*) 'DEBUG-IOGR: after W3DMO5, before XBPO read' ; FLUSH(6)
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                XBPO, YBPO, RDBPO, IPBPO, ISBPO
-      WRITE(*,*) 'DEBUG-IOGR: after XBPO read, IERR=',IERR ; FLUSH(6)
         END IF
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 12'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -941,7 +920,6 @@
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 IHMAX, HSPMIN, WSMULT, WSCUT, FLCOMB, NOSWLL,         &
                 PTMETH, PTFCUT
-      WRITE(*,*) 'DEBUG-IOGR: after IHMAX read, IERR=',IERR ; FLUSH(6)
         END IF
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 13'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -975,11 +953,8 @@
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 FACP, XREL, XFLT, FXFM, FXPM, XFT, XFC, FACSD, FHMAX, &
                 FFACBERG, DELAB, FWTABLE
-      WRITE(*,*) 'DEBUG-IOGR: after FACP/numerical params read, IERR=', &
-                 IERR ; FLUSH(6)
 !/RWND          READ  (NDSM)                                                &
 !/RWND                RWINDC
-      WRITE(*,*) 'DEBUG-IOGR: after RWND read' ; FLUSH(6)
 !/WCOR          READ  (NDSM)                                                &
 !/WCOR                WWCOR
 !/REF1          READ  (NDSM)                                                &
@@ -1040,7 +1015,6 @@
 !/LN1        ELSE
 !/LN1          READ (NDSM,END=801,ERR=802,IOSTAT=IERR) SLNC1, FSPM, FSHF
 !/LN1        END IF
-      WRITE(*,*) 'DEBUG-IOGR: after LN1 read' ; FLUSH(6)
 !
 !/LN1      IF ( FLTEST ) WRITE (NDST,9049) SLNC1, FSPM, FSHF
 !
@@ -1113,7 +1087,6 @@
 !/ST4                IKTAB, DCKI, QBI, SATINDICES, SATWEIGHTS,        &
 !/ST4                DIKCUMUL, CUMULW
 !/ST4        ELSE
-      WRITE(*,*) 'DEBUG-IOGR: before ST4 read' ; FLUSH(6)
 !/ST4          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
 !/ST4                ZZWND, AALPHA, ZZ0MAX, BBETA, SSINTHP, ZZALP,    &
 !/ST4                TTAUWSHELTER, SSWELLFPAR, SSWELLF, SSINBR,       &
@@ -1128,7 +1101,6 @@
 !/ST4                IKTAB, DCKI, QBI, SATINDICES, SATWEIGHTS,        &
 !/ST4                DIKCUMUL, CUMULW
 !/ST4        END IF
-      WRITE(*,*) 'DEBUG-IOGR: after ST4 read' ; FLUSH(6)
 !
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 18'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -1154,7 +1126,6 @@
 !/NL1          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
 !/NL1                SNLC1, LAM, KDCON, KDMN, SNLS1, SNLS2, SNLS3
 !/NL1        END IF
-      WRITE(*,*) 'DEBUG-IOGR: after NL1 read' ; FLUSH(6)
 !
 !/NL1      IF ( FLTEST ) WRITE (NDST,9051) SNLC1, LAM,                &
 !/NL1                           KDCON, KDMN, SNLS1, SNLS2, SNLS3
@@ -1231,7 +1202,6 @@
 !/NLS                CNLSA, CNLSC, CNLSFM, CNLSC1, CNLSC2, CNLSC3
 !
 !/NL1      IF ( .NOT. WRITE ) CALL INSNL1 ( IGRD )
-      WRITE(*,*) 'DEBUG-IOGR: after INSNL1' ; FLUSH(6)
 !/NL3      IF ( .NOT. WRITE ) CALL INSNL3
 !/NLX      IF ( .NOT. WRITE ) CALL INSNLX
 !/NLS      IF ( .NOT. WRITE ) CALL INSNLS
@@ -1259,7 +1229,6 @@
 !/BT1        ELSE
 !/BT1          READ (NDSM,END=801,ERR=802,IOSTAT=IERR) SBTC1
 !/BT1        END IF
-      WRITE(*,*) 'DEBUG-IOGR: after BT1 read' ; FLUSH(6)
 !
 !/BT1      IF ( FLTEST ) WRITE (NDST,9052) SBTC1
 !
@@ -1287,7 +1256,6 @@
 !/DB1          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
 !/DB1                 SDBC1, SDBC2, FDONLY
 !/DB1        END IF
-      WRITE(*,*) 'DEBUG-IOGR: after DB1 read' ; FLUSH(6)
 !
 !/DB1      IF ( FLTEST ) WRITE (NDST,9053) SDBC1, SDBC2, FDONLY
 

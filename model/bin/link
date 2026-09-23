@@ -35,7 +35,7 @@
   echo "      Linking $prog"
   input="$*"
 
-# 1.b Get data from setup file - - - - - - - - - - - - - - - - - - - - - - - - 
+# 1.b Get data from setup file - - - - - - - - - - - - - - - - - - - - - - - -
 
   source $(dirname $0)/w3_setenv
   main_dir=$WWATCH3_DIR
@@ -44,7 +44,7 @@
   list=$WWATCH3_LIST
 
 
-# 1.c Initial clean-up - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# 1.c Initial clean-up - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   rm -f $main_dir/exe/$prog
 
@@ -80,29 +80,14 @@
 # --------------------------------------------------------------------------- #
 # Add here the correct linker call including switches
 
-  libs=""
-#  opt="-O3 -ip -o $prog"
-# opt="-O3 -xSSE4.2 -ip -o $prog"
-  opt="-O3 -heap-arrays -prec-div -prec-sqrt -xHost -align array128byte -ip -o $prog"
-  # opt="-O0 -g -traceback -check all -fpe0 -ftrapuv -o $prog"
-  
 # Intel compiler ------------------------------------------------------------
 # 3.a Build options and determine compiler name
-#     No GRIB libraries for this one
-  if [ "$ncep_grib_compile" = 'yes' ]
-  then
-      G2_LIB4=/home/ec2-user/ww3/lib/g2lib-3.2.0/libg2.a
-      W3NCO_LIB4=/home/ec2-user/ww3/lib/w3lib-2.2.0/libw3.a
-      BACIO_LIB4=/home/ec2-user/ww3/lib/bacio-1.3/libbacio.a
-      JASPER_LIB=/usr/local/lib/libjasper.a
-      PNG_LIB=/usr/local/lib/libpng12.a
-      Z_LIB=/usr/local/lib/libz.a
-    opt="$opt -convert big_endian -assume byterecl -prec-div -prec-sqrt"
-    libs="$libs ${G2_LIB4} ${W3NCO_LIB4} ${BACIO_LIB4} ${JASPER_LIB} ${PNG_LIB} ${Z_LIB}"
-  fi
-  
-
-
+  # linking options
+  libs=""
+    #  opt="-O3 -ip -o $prog"
+    # opt="-O3 -xSSE4.2 -ip -o $prog"
+    opt="-O3 -prec-div -prec-sqrt -xHost -align array128byte -ip -o $prog"
+    # opt="-O0 -g -traceback -check all -fpe0 -ftrapuv -o $prog"
 
   # mpi implementation
   if [ "$mpi_mod" = 'yes' ]
@@ -122,7 +107,7 @@
   # open mpi implementation
   if [ "$omp_mod" = 'yes' ]
   then
-    opt="$opt -qopenmp"
+    opt="$opt -openmp"
   fi
 
   # oasis coupler archive
@@ -153,8 +138,8 @@
     esac
   fi
 
-  # parmetis library 
-  if [ "$prog" = 'ww3_shel' ] || [ "$prog" = 'ww3_multi' ] || [ "$prog" = 'ww3_sbs1' ] 
+  # parmetis library
+  if [ "$prog" = 'ww3_shel' ] || [ "$prog" = 'ww3_multi' ] || [ "$prog" = 'ww3_sbs1' ]
   then
     if [ "$pdlib_mod" = 'yes' ]
     then
@@ -164,9 +149,22 @@
         echo "[ERROR] METIS_PATH is not defined"
         exit 1
       fi
-      echo "link with parmetis" 
+      echo "link with parmetis"
       libs="$libs $METIS_PATH/lib/libparmetis.a $METIS_PATH/lib/libmetis.a"
     fi
+  fi
+
+  # ncep grib libraries
+  if [ "$ncep_grib_compile" = 'yes' ]
+  then
+      G2_LIB4=/home/ec2-user/ww3/lib/g2lib-3.2.0/libg2.a
+      W3NCO_LIB4=/home/ec2-user/ww3/lib/w3lib-2.2.0/libw3.a
+      BACIO_LIB4=/home/ec2-user/ww3/lib/bacio-1.3/libbacio.a
+      JASPER_LIB=/home/ec2-user/ww3/lib/jasper-1.900.1/src/libjasper/.libs/libjasper.a
+      PNG_LIB=/home/ec2-user/ww3/lib/libpng-1.2.34/.libs/libpng12.a
+      Z_LIB=/home/ec2-user/ww3/lib/zlib-1.2.6/libz.a
+    opt="$opt -convert big_endian -assume byterecl -prec-div -prec-sqrt"
+    libs="$libs ${G2_LIB4} ${W3NCO_LIB4} ${BACIO_LIB4} ${JASPER_LIB} ${PNG_LIB} ${Z_LIB}"
   fi
 
   opt="$opt $EXTRA_LINK_OPTIONS"

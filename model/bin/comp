@@ -80,7 +80,7 @@
 
 #  opt="-c $list -O3 -assume byterecl -ip -module $path_m"
 # opt="-c $list -O3 -assume byterecl -xSSE4.2 -ip  -module $path_m"
- opt="-c $list -O3 -heap-arrays -assume byterecl -prec-div -prec-sqrt -xHost -align array128byte -ip  -module $path_m"
+opt="-c $list -O3 -assume byterecl -prec-div -prec-sqrt -xHost -align array128byte -ip  -module $path_m"
 # opt="-c $list -O0 -assume byterecl -g -traceback -check all -fpe0 -ftrapuv -module $path_m"
 
   if [ "$name" != 'ww3_gspl' ]
@@ -106,7 +106,7 @@
   # open mpi implementation
   if [ "$omp_mod" = 'yes' ]
   then
-    opt="$opt -qopenmp"
+    opt="$opt -openmp"
   fi
 
   # oasis coupler include dir

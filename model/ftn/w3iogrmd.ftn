@@ -418,7 +418,8 @@
       I      = LEN_TRIM(FILEXT)
       J      = LEN_TRIM(FNMPRE)
 !
-!AR: ADD DEBUGFLAG      WRITE(*,*) 'FILE=', FNMPRE(:J)//'mod_def.'//FILEXT(:I)
+      WRITE(*,*) 'DEBUG-IOGR: about to open [',                      &
+                 FNMPRE(:J)//'mod_def.'//FILEXT(:I), ']' ; FLUSH(6)
       IF ( WRITE ) THEN
           OPEN (NDSM,FILE=FNMPRE(:J)//'mod_def.'//FILEXT(:I),         &
                 FORM='UNFORMATTED',ERR=800,IOSTAT=IERR)
@@ -426,6 +427,7 @@
           OPEN (NDSM,FILE=FNMPRE(:J)//'mod_def.'//FILEXT(:I),         &
                 FORM='UNFORMATTED',STATUS='OLD',ERR=800,IOSTAT=IERR)
         ENDIF
+      WRITE(*,*) 'DEBUG-IOGR: open done, IERR=', IERR ; FLUSH(6)
 !
       REWIND ( NDSM )
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 5, WRITE=', WRITE
@@ -457,6 +459,9 @@
                 NBI, NFBPO, GNAME, FNAME0, FNAME1, FNAME2, FNAME3,    &
                 FNAME4, FNAME5, FNAME6, FNAME7, FNAMEP, FNAMEG,       &
                 FNAMEF, FNAMEI
+      WRITE(*,*) 'DEBUG-IOGR: header read done, IERR=', IERR,         &
+                 ' NX=',NX,' NY=',NY,' NSEA=',NSEA,' MTH=',MTH,       &
+                 ' MK=',MK,' NBI=',NBI,' NFBPO=',NFBPO ; FLUSH(6)
 !
 !/SMC          READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                &
 !/SMC                     NCel, NUFc, NVFc, NRLv, MRFct

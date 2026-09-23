@@ -327,8 +327,13 @@
 !  ww3_shel does via W3DIMW before ever touching VA (w3initmd.ftn).
       CALL W3SETG ( 2, 6, 6 )
       CALL W3SETO ( 2, 6, 6 )
+      WRITE(*,*) 'MICAHDBG before W3DIMW(2,..): NSPEC=',NSPEC,        &
+                  ' NSEA=',NSEA,' NSPEC2=',NSPEC2
+      FLUSH(6)
       CALL W3DIMW ( 2, 6, 6 )
       CALL W3SETW ( 2, 6, 6 )
+      WRITE(*,*) 'MICAHDBG after W3SETW(2,..): shape(VA)=',SHAPE(VA)
+      FLUSH(6)
 !
 ! 9.  Convert energy density -> action density (slot 2 units) -------- *
 !     Same CGTAB reused - same depths/frequencies on both grids.

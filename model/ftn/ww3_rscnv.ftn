@@ -97,7 +97,7 @@
 !/
       INTEGER   :: NDSM, NDSR, ISEA, IK, ITH, IS, INTYPE, I1, I2
       INTEGER   :: NK1, NTH1, NSEA1, NSPEC1, NK2, NTH2, NSEA2, NSPEC2
-      INTEGER   :: IERR_MPI
+      INTEGER   :: IERR_MPI, NBAD
       INTEGER   :: SAVTIME(2)
       REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
       REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
@@ -309,6 +309,28 @@
         END DO
       DEALLOCATE ( E2, CGTAB )
 !
+!micah edit: sanity-check the regridded spectrum before writing it out -
+!  a garbage (NaN/Inf/absurdly large) value here would still write
+!  successfully (this program only moves bytes, it never evaluates the
+!  data), but could easily cause an out-of-bounds crash later in
+!  ww3_shel's own physics (e.g. a table lookup keyed by a wave
+!  parameter derived from a bad spectrum, the same pattern as this
+!  program's own CGTAB lookup above). Catch it here instead of chasing
+!  it as a mystery crash downstream.
+      NBAD = 0
+      DO ISEA=1, NSEA1
+        DO IS=1, NSPEC2
+          IF ( VA2(IS,ISEA) .NE. VA2(IS,ISEA) .OR.                       &
+               ABS(VA2(IS,ISEA)) .GT. 1.0E10 ) THEN
+              NBAD = NBAD + 1
+            END IF
+          END DO
+        END DO
+      IF ( NBAD .GT. 0 ) THEN
+          WRITE (*,907) NBAD, NSPEC2*NSEA1
+          CALL EXTCDE ( 5 )
+        END IF
+!
 ! 10. Switch to slot 2, load the converted spectra, write restart ---- *
 !
       CALL W3SETG ( 2, 6, 6 )
@@ -333,6 +355,9 @@
   905 FORMAT ('  Restart time : ',2I9)
   906 FORMAT (/'  Wrote converted restart - rename restartNNN.ww3 ',  &
                'to restart.ww3 before starting the new grid.'/)
+  907 FORMAT (/' *** ERROR : ',I8,' of ',I8,' regridded spectral ',   &
+               'values are NaN or implausibly large - the converted', &
+               ' restart was NOT written ***'/)
 !/
 !/ End of W3RSCNV ------------------------------------------------------ /
 !/

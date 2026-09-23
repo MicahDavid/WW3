@@ -796,6 +796,7 @@
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 
               READ(NDSM,END=801,ERR=802,IOSTAT=IERR)GRIDSHIFT
+      WRITE(*,*) 'DEBUG-IOGR: after GRIDSHIFT read, IERR=',IERR ; FLUSH(6)
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 7.15'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
 !/SEC1         READ (NDSM) NITERSEC1
@@ -863,11 +864,16 @@
                XFR, FR1, SIG, SIG2, DSIP, DSII, DDEN, DDEN2, FTE,     &
                FTF, FTWN, FTTR, FTWL, FACTI1, FACTI2, FACHFA, FACHFE
         ELSE
+          WRITE(*,*) 'DEBUG-IOGR: before W3DIMS, SINIT=',SINIT,       &
+                     ' IGRD=',IGRD,' NK=',NK,' NTH=',NTH ; FLUSH(6)
           IF (.NOT.SINIT) CALL W3DIMS ( IGRD, NK, NTH, NDSE, NDST )
+          WRITE(*,*) 'DEBUG-IOGR: after W3DIMS' ; FLUSH(6)
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                MAPWN, MAPTH, DTH, TH, ESIN, ECOS, ES2, ESC, EC2,      &
                XFR, FR1, SIG, SIG2, DSIP, DSII, DDEN, DDEN2, FTE,     &
                FTF, FTWN, FTTR, FTWL, FACTI1, FACTI2, FACHFA, FACHFE
+          WRITE(*,*) 'DEBUG-IOGR: after spectral array read, IERR=',  &
+                     IERR ; FLUSH(6)
         END IF
 
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 10'

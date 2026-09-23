@@ -893,6 +893,7 @@
         ELSE
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 E3DF, P2MSF, US3DF,USSPF, USSP_WN
+      WRITE(*,*) 'DEBUG-IOGR: after E3DF read, IERR=',IERR ; FLUSH(6)
         END IF
 
       IF ( INXOUT .EQ. 'GRID' ) THEN
@@ -909,9 +910,12 @@
           WRITE (NDSM)                                                &
                XBPO, YBPO, RDBPO, IPBPO, ISBPO
         ELSE
+          WRITE(*,*) 'DEBUG-IOGR: before W3DMO5' ; FLUSH(6)
           CALL W3DMO5 ( IGRD, NDSE, NDST, 2 )
+          WRITE(*,*) 'DEBUG-IOGR: after W3DMO5, before XBPO read' ; FLUSH(6)
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                XBPO, YBPO, RDBPO, IPBPO, ISBPO
+      WRITE(*,*) 'DEBUG-IOGR: after XBPO read, IERR=',IERR ; FLUSH(6)
         END IF
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 12'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -937,6 +941,7 @@
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 IHMAX, HSPMIN, WSMULT, WSCUT, FLCOMB, NOSWLL,         &
                 PTMETH, PTFCUT
+      WRITE(*,*) 'DEBUG-IOGR: after IHMAX read, IERR=',IERR ; FLUSH(6)
         END IF
 !/DEBUGIOGR     WRITE(740+IAPROC,*) 'W3IOGR, step 13'
 !/DEBUGIOGR     FLUSH(740+IAPROC)
@@ -970,6 +975,8 @@
           READ (NDSM,END=801,ERR=802,IOSTAT=IERR)                     &
                 FACP, XREL, XFLT, FXFM, FXPM, XFT, XFC, FACSD, FHMAX, &
                 FFACBERG, DELAB, FWTABLE
+      WRITE(*,*) 'DEBUG-IOGR: after FACP/numerical params read, IERR=', &
+                 IERR ; FLUSH(6)
 !/RWND          READ  (NDSM)                                                &
 !/RWND                RWINDC
 !/WCOR          READ  (NDSM)                                                &

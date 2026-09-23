@@ -79,7 +79,7 @@
       USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, NSEAL,&
                           SIG, SIG2, XFR, FR1, TH, ZB, DMIN, GNAME,    &
                           FACHFE, FILEXT
-      USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, WLV, TIME
+      USE W3WDATMD, ONLY: W3NDAT, W3SETW, W3DIMW, VA, WLV, TIME
       USE W3ADATMD, ONLY: W3NAUX, W3SETA, NSEALM
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
       USE W3ODATMD, ONLY: W3NOUT, W3SETO, NDSO, NDSE, NAPROC, IAPROC, &
@@ -317,9 +317,18 @@
 !  access, not just a wrong-but-in-bounds value), producing NaN/garbage
 !  for ~9% of the converted spectrum in practice. Switch to slot 2
 !  before this conversion, not after, so SIG2 is correctly sized.
+!micah edit: slot 2's VA has never been allocated at this point (that
+!  only happens as a side effect of W3IORS being called for a slot,
+!  which hasn't happened yet for slot 2) - W3WDATMD's own docs say
+!  W3SETW must be called AFTER allocation to point at the real arrays,
+!  so calling it here on an unallocated slot left VA still pointing at
+!  slot 1's (696-sized) storage, causing a shape mismatch later against
+!  VA2 (1044-sized). Explicitly allocate slot 2 first, the same way
+!  ww3_shel does via W3DIMW before ever touching VA (w3initmd.ftn).
       CALL W3SETG ( 2, 6, 6 )
-      CALL W3SETW ( 2, 6, 6 )
       CALL W3SETO ( 2, 6, 6 )
+      CALL W3DIMW ( 2, 6, 6 )
+      CALL W3SETW ( 2, 6, 6 )
 !
 ! 9.  Convert energy density -> action density (slot 2 units) -------- *
 !     Same CGTAB reused - same depths/frequencies on both grids.

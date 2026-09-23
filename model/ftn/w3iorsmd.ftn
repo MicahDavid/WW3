@@ -270,7 +270,7 @@
       INTEGER                 :: IGRD, I, J, LRECL, NSIZE, IERR,      &
                                  NSEAT, MSPEC, TTIME(2), ISEA, JSEA,  &
                                  NREC, NPART, IPART, IX, IY, IXL, IP, &
-                                 NPRTX2
+                                 NPRTX2, MICAHNBAD
       INTEGER, ALLOCATABLE    :: MAPTMP(:,:)
 !/S      INTEGER, SAVE           :: IENT = 0
 !/MPI      INTEGER                 :: IERR_MPI, IH, IB, ISEA0, ISEAN, &
@@ -659,13 +659,28 @@
 !/MPI!
 !/MPI            ELSE
               VA = 0.
+!micah debug: temporary - catch the first bad point as it's read
+              MICAHNBAD = 0
               DO JSEA=1, NSEAL
                 CALL INIT_GET_ISEA(ISEA, JSEA)
                 NREC   = ISEA + 2
                 RPOS   = 1_8 + LRECL*(NREC-1_8)
                 READ (NDSR,POS=RPOS,ERR=802,IOSTAT=IERR)              &
                          (VA(I,JSEA),I=1,NSPEC)
+                IF ( ANY(VA(:,JSEA).NE.VA(:,JSEA)) .OR.                &
+                     ANY(ABS(VA(:,JSEA)).GT.1.0E10) ) THEN
+                    MICAHNBAD = MICAHNBAD + 1
+                    IF ( MICAHNBAD.LE.5 ) THEN
+                        WRITE(*,*) 'MICAHDBG bad JSEA=',JSEA,' ISEA=', &
+                                    ISEA,' NREC=',NREC,' RPOS=',RPOS,  &
+                                    ' NSPEC=',NSPEC,' LRECL=',LRECL
+                        FLUSH(6)
+                      END IF
+                  END IF
                 ENDDO
+              WRITE(*,*) 'MICAHDBG total bad points=',MICAHNBAD,      &
+                          ' of NSEAL=',NSEAL
+              FLUSH(6)
 !/MPI            END IF
             END IF
           END IF

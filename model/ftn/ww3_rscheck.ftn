@@ -21,6 +21,10 @@
 !
 !/ ------------------------------------------------------------------- /
       USE CONSTANTS
+!micah debug: IEEE_IS_NAN doesn't raise the invalid exception itself
+!  (unlike a plain /= comparison), needed to safely detect NaN under
+!  -fpe0 without the check itself trapping first
+      USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
 !
       USE W3GDATMD, ONLY: W3NMOD, W3SETG, NSPEC, NSEA, FILEXT
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, VA, TIME
@@ -80,13 +84,11 @@
       NBAD = 0
       NCHK = 0
       DO ISEA=1, NSEA
-        DO IS=1, NSPEC
-          NCHK = NCHK + 1
-          IF ( VA(IS,ISEA) .NE. VA(IS,ISEA) .OR.                       &
-               ABS(VA(IS,ISEA)) .GT. 1.0E10 ) THEN
-              NBAD = NBAD + 1
-            END IF
-          END DO
+        NCHK = NCHK + NSPEC
+        IF ( ANY(IEEE_IS_NAN(VA(:,ISEA))) ) THEN
+            NBAD = NBAD + 1
+            IF ( NBAD.LE.5 ) WRITE (*,904) ISEA
+          END IF
         END DO
       WRITE (*,903) NBAD, NCHK
 !
@@ -95,7 +97,8 @@
   900 FORMAT (/'  *** WAVEWATCH III restart file check ***'/)
   901 FORMAT ('  grid : NSPEC=',I6,' NSEA=',I8)
   902 FORMAT ('  Restart time : ',2I9)
-  903 FORMAT (/'  Bad (NaN/implausible) values : ',I10,' of ',I10/)
+  903 FORMAT (/'  Bad (NaN) sea points : ',I10,' of ',I10,' values checked'/)
+  904 FORMAT ('  bad ISEA=',I8)
 !/
 !/ End of W3RSCHECK ------------------------------------------------------ /
 !/

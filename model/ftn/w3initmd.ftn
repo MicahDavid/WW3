@@ -725,19 +725,8 @@
 !/DEBUGINIT     WRITE(740+IAPROC,*) ' maxval(UST)=', maxval(UST)
 !/DEBUGINIT     FLUSH(740+IAPROC)
 !/TIMINGS       CALL PRINT_MY_TIME("After W3DIMW")
-!micah debug: temporary - bracket W3DIMA/W3DIMI to find where VA picks
-!  up NaN before the W3IORS restart read below
-      WRITE(*,*) 'MICAHDBG after W3DIMW, VA NaN count=',               &
-                  COUNT(VA(:,1:NSEAL).NE.VA(:,1:NSEAL))
-      FLUSH(6)
       CALL W3DIMA ( IMOD, NDSE, NDST )
-      WRITE(*,*) 'MICAHDBG after W3DIMA, VA NaN count=',               &
-                  COUNT(VA(:,1:NSEAL).NE.VA(:,1:NSEAL))
-      FLUSH(6)
       CALL W3DIMI ( IMOD, NDSE, NDST , FLAGSTIDEIN )
-      WRITE(*,*) 'MICAHDBG after W3DIMI, VA NaN count=',               &
-                  COUNT(VA(:,1:NSEAL).NE.VA(:,1:NSEAL))
-      FLUSH(6)
 !!/DEBUGMPI     CALL TEST_MPI_STATUS("Case 13")
 !/TIMINGS       CALL PRINT_MY_TIME("After W3DIMI")
 

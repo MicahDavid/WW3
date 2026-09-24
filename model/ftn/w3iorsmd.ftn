@@ -229,10 +229,6 @@
 !/ ------------------------------------------------------------------- /
       USE W3GDATMD, ONLY: W3SETG, W3SETREF
       USE W3ODATMD, ONLY: W3SETO
-!micah debug: temporary - IEEE_IS_NAN doesn't raise the invalid
-!  exception itself (unlike a plain /= comparison), needed to safely
-!  detect NaN under -fpe0 without the check itself trapping first
-      USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_NAN
 !/
       USE W3GDATMD, ONLY: NX, NY, NSEA, NSEAL, NSPEC, MAPSTA, MAPST2, &
                           GNAME, FILEXT, GTYPE, UNGTYPE
@@ -274,7 +270,7 @@
       INTEGER                 :: IGRD, I, J, LRECL, NSIZE, IERR,      &
                                  NSEAT, MSPEC, TTIME(2), ISEA, JSEA,  &
                                  NREC, NPART, IPART, IX, IY, IXL, IP, &
-                                 NPRTX2, MICAHNBAD
+                                 NPRTX2
       INTEGER, ALLOCATABLE    :: MAPTMP(:,:)
 !/S      INTEGER, SAVE           :: IENT = 0
 !/MPI      INTEGER                 :: IERR_MPI, IH, IB, ISEA0, ISEAN, &
@@ -663,30 +659,13 @@
 !/MPI!
 !/MPI            ELSE
               VA = 0.
-!micah debug: temporary - catch the first bad point as it's read
-              MICAHNBAD = 0
               DO JSEA=1, NSEAL
                 CALL INIT_GET_ISEA(ISEA, JSEA)
                 NREC   = ISEA + 2
                 RPOS   = 1_8 + LRECL*(NREC-1_8)
                 READ (NDSR,POS=RPOS,ERR=802,IOSTAT=IERR)              &
                          (VA(I,JSEA),I=1,NSPEC)
-!micah debug: IEEE_IS_NAN instead of a plain /= comparison - Fortran
-!  doesn't guarantee .OR. short-circuits, so an ABS()/comparison-based
-!  check here would itself trap on a NaN operand under -fpe0
-                IF ( ANY(IEEE_IS_NAN(VA(:,JSEA))) ) THEN
-                    MICAHNBAD = MICAHNBAD + 1
-                    IF ( MICAHNBAD.LE.5 ) THEN
-                        WRITE(*,*) 'MICAHDBG bad JSEA=',JSEA,' ISEA=', &
-                                    ISEA,' NREC=',NREC,' RPOS=',RPOS,  &
-                                    ' NSPEC=',NSPEC,' LRECL=',LRECL
-                        FLUSH(6)
-                      END IF
-                  END IF
                 ENDDO
-              WRITE(*,*) 'MICAHDBG total bad points=',MICAHNBAD,      &
-                          ' of NSEAL=',NSEAL
-              FLUSH(6)
 !/MPI            END IF
             END IF
           END IF

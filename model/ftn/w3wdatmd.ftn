@@ -416,10 +416,6 @@
       IF ( FL_ALL ) THEN
 !/DEBUGINIT    WRITE(740+IAPROC,*) 'W3DIMW, step 8'
 !/DEBUGINIT    FLUSH(740+IAPROC)
-          WRITE(*,*) 'MICAHDBG W3DIMW allocating IMOD=',IMOD,          &
-                      ' NSPEC=',NSPEC,' NSEALM=',NSEALM,               &
-                      ' DINIT_before=',WDATAS(IMOD)%DINIT
-          FLUSH(6)
           ALLOCATE ( WDATAS(IMOD)%VA(NSPEC,0:NSEALM), STAT=ISTAT ); WDATAS(IMOD)%VA = 0.
 !/DEBUGINIT    WRITE(740+IAPROC,*) 'W3DIMW, step 8.1'
 !/DEBUGINIT    FLUSH(740+IAPROC)

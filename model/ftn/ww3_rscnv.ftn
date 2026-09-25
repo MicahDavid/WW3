@@ -29,8 +29,9 @@
 !     grid's spectral discretization (read from mod_def.ww3.old), slot
 !     2 with the NEW grid's discretization (read from mod_def.ww3).
 !     Both must describe the exact same spatial grid/bathymetry -
-!     NSEA/NK/XFR/FR1 must match between them; only NTH is expected to
-!     differ (checked below, not assumed).
+!     NSEA/FR1 must match between them; NTH, NK and XFR may differ
+!     (e.g. 15 deg/XFR=1.10/NK=29 -> 10 deg/XFR=1.07/NK=40). Checked
+!     below, not assumed.
 !
 !     The existing restart.ww3 (old discretization) is read bound to
 !     slot 1 via W3IORS. Each sea point's action-density spectrum is
@@ -78,7 +79,7 @@
 !
       USE W3GDATMD, ONLY: W3NMOD, W3SETG, NK, NTH, NSPEC, NSEA, NSEAL,&
                           SIG, SIG2, XFR, FR1, TH, ZB, DMIN, GNAME,    &
-                          FACHFE, FILEXT
+                          FACHFE, FILEXT, DSII, DTH
       USE W3WDATMD, ONLY: W3NDAT, W3SETW, W3DIMW, VA, WLV, TIME
       USE W3ADATMD, ONLY: W3NAUX, W3SETA, NSEALM
 !/NL1      USE W3ADATMD, ONLY: NSPECX, NSPECY
@@ -117,7 +118,10 @@
       INTEGER   :: SAVTIME(2)
       REAL      :: DUMFPI, DEPTH, SQRTH, SIX, R1, R2
       REAL      :: XFR1, FR11, TH11, XFR2, FR12, TH12
-      REAL, ALLOCATABLE :: CGTAB(:,:)
+      REAL      :: DTH1, DTH2, FACHF2, M01, M02, HS1, HS2, DHS, DHSMAX
+      REAL      :: ETOT1, ETOT2
+      INTEGER   :: NHS1PC, IHSMAX
+      REAL, ALLOCATABLE :: CGTAB(:,:), DSII1(:), DSII2(:)
       REAL, ALLOCATABLE :: E1(:,:), E2(:,:), VA2(:,:), WLV1(:)
 !/
 !/ ------------------------------------------------------------------- /
@@ -185,6 +189,11 @@
       XFR1   = XFR
       FR11   = FR1
       TH11   = TH(1)
+!micah edit: DSII/DTH are per-slot pointers - copy slot 1's values now
+!  for the energy-conservation check (step 8), before slot 2 is loaded
+      DTH1   = DTH
+      ALLOCATE ( DSII1(NK1) )
+      DSII1  = DSII(1:NK1)
       WRITE (*,901) 'OLD', TRIM(GNAME), NK1, NTH1, NSEA1
 !
 ! 3.  Read the NEW grid definition into slot 2 ------------------------ *
@@ -204,27 +213,32 @@
       XFR2   = XFR
       FR12   = FR1
       TH12   = TH(1)
+!micah edit: W3IOBC passes the TARGET grid's FACHFE as W3CSPC's tail
+!  factor - do the same here. Passing slot 1's (old XFR) value would
+!  give the wrong tail slope whenever the new grid's fmax extends past
+!  the old one's.
+      FACHF2 = FACHFE
+      DTH2   = DTH
+      ALLOCATE ( DSII2(NK2) )
+      DSII2  = DSII(1:NK2)
       WRITE (*,901) 'NEW', TRIM(GNAME), NK2, NTH2, NSEA2
+      WRITE (*,908) 'OLD', XFR1, FR11, FR11*XFR1**(NK1-1)
+      WRITE (*,908) 'NEW', XFR2, FR12, FR12*XFR2**(NK2-1)
 !
-! 4.  Sanity checks - only NTH is expected to differ ------------------ *
+! 4.  Sanity checks - spatial grid and FR1 must match ----------------- *
+!     NTH, NK and XFR may all differ - W3CSPC redistributes energy
+!     conservatively in both direction and frequency.
 !
       IF ( NSEA1 .NE. NSEA2 ) THEN
           WRITE (*,902) 'NSEA', NSEA1, NSEA2
           CALL EXTCDE ( 1 )
         END IF
-      IF ( NK1 .NE. NK2 ) THEN
-          WRITE (*,902) 'NK', NK1, NK2
-          CALL EXTCDE ( 2 )
-        END IF
-      IF ( ABS(XFR1-XFR2) .GT. 0.0005 ) THEN
-          WRITE (*,903) 'XFR', XFR1, XFR2
-          CALL EXTCDE ( 3 )
-        END IF
       IF ( ABS(FR11-FR12) .GT. 0.0005*FR11 ) THEN
           WRITE (*,903) 'FR1', FR11, FR12
           CALL EXTCDE ( 4 )
         END IF
-      IF ( NTH1 .EQ. NTH2 ) THEN
+      IF ( NTH1.EQ.NTH2 .AND. NK1.EQ.NK2 .AND.                        &
+           ABS(XFR1-XFR2).LE.0.0005 ) THEN
           WRITE (*,904)
         END IF
 !
@@ -273,29 +287,15 @@
 !
 ! 6.  Build the per-point, per-frequency group velocity table -------- *
 !     Standalone dispersion-relation lookup, same inlined table method
-!     ww3_outp.ftn uses for output points. Old and new grids share the
-!     same bathymetry and frequency grid (checked above), so this
-!     table is valid both for the action->energy conversion (slot 1
-!     units, step 7) and the energy->action conversion (slot 2 units,
-!     step 9) below - it is not recomputed after switching slots.
+!     ww3_outp.ftn uses for output points. Built from slot 1's SIG for
+!     the action->energy conversion (step 7).
+!micah edit: this table used to be reused for the energy->action
+!  conversion too, which was only valid while NK/XFR were required to
+!  match. Now that the frequency grid can change, it is rebuilt from
+!  slot 2's SIG in step 9 (see BLDCG below).
 !
       ALLOCATE ( CGTAB(NK1,NSEA1) )
-      DO ISEA=1, NSEA1
-        DEPTH  = MAX ( DMIN, WLV1(ISEA) - ZB(ISEA) )
-        SQRTH  = SQRT ( DEPTH )
-        DO IK=1, NK1
-          SIX  = SIG(IK) * SQRTH
-          I1   = INT ( SIX/DSIE )
-          IF ( I1 .LE. N1MAX ) THEN
-              I2  = I1 + 1
-              R1  = SIX/DSIE - REAL(I1)
-              R2  = 1. - R1
-              CGTAB(IK,ISEA) = ( R2*ECG1(I1) + R1*ECG1(I2) ) * SQRTH
-            ELSE
-              CGTAB(IK,ISEA) = 0.5 * GRAV / SIG(IK)
-            END IF
-          END DO
-        END DO
+      CALL BLDCG ( NK1 )
 !
 ! 7.  Convert action density -> energy density (slot 1 units) -------- *
 !
@@ -314,8 +314,52 @@
       ALLOCATE ( E2(NSPEC2,NSEA1) )
       CALL W3CSPC ( E1, NK1, NTH1, XFR1, FR11, TH11,                  &
                     E2, NK2, NTH2, XFR2, FR12, TH12,                  &
-                    NSEA1, 6, 6, FACHFE )
-      DEALLOCATE ( E1 )
+                    NSEA1, 6, 6, FACHF2 )
+!
+!micah edit: energy-conservation check. W3CSPC is conservative by
+!  design, but with a frequency change the old/new fmax differ slightly
+!  (e.g. 0.505 Hz at 1.10/29 vs 0.490 Hz at 1.07/40), so a small loss
+!  from the clipped top bin is expected. Report the global energy
+!  ratio, the largest per-point Hs change, and the number of points
+!  (Hs > 0.1 m) whose Hs changed by more than 1%. Same bin-energy
+!  integration WW3 itself uses (E * DSII * DTH, cf. DDEN in W3GDATMD).
+!
+      ETOT1  = 0.
+      ETOT2  = 0.
+      DHSMAX = 0.
+      IHSMAX = 0
+      NHS1PC = 0
+      DO ISEA=1, NSEA1
+        M01    = 0.
+        DO IK=1, NK1
+          DO ITH=1, NTH1
+            M01  = M01 + E1(ITH+(IK-1)*NTH1,ISEA) * DSII1(IK) * DTH1
+            END DO
+          END DO
+        M02    = 0.
+        DO IK=1, NK2
+          DO ITH=1, NTH2
+            M02  = M02 + E2(ITH+(IK-1)*NTH2,ISEA) * DSII2(IK) * DTH2
+            END DO
+          END DO
+        ETOT1  = ETOT1 + M01
+        ETOT2  = ETOT2 + M02
+        HS1    = 4. * SQRT ( MAX ( 0., M01 ) )
+        HS2    = 4. * SQRT ( MAX ( 0., M02 ) )
+        DHS    = HS2 - HS1
+        IF ( ABS(DHS) .GT. ABS(DHSMAX) ) THEN
+            DHSMAX = DHS
+            IHSMAX = ISEA
+          END IF
+        IF ( HS1.GT.0.1 .AND. ABS(DHS).GT.0.01*HS1 ) NHS1PC = NHS1PC + 1
+        END DO
+      IF ( ETOT1 .GT. 0. ) THEN
+          WRITE (*,909) ETOT2/ETOT1, DHSMAX, IHSMAX, NHS1PC, NSEA1
+        ELSE
+          WRITE (*,910)
+          CALL EXTCDE ( 6 )
+        END IF
+      DEALLOCATE ( E1, DSII1, DSII2 )
 !
 !micah edit: SIG2 (used just below) is a per-model-slot pointer, same
 !  category as the TIME bug above - it was still slot 1's SIG2 here
@@ -347,8 +391,12 @@
       CALL W3SETW ( 2, 6, 6 )
 !
 ! 9.  Convert energy density -> action density (slot 2 units) -------- *
-!     Same CGTAB reused - same depths/frequencies on both grids.
+!     CGTAB rebuilt on slot 2's frequencies (slot 2 is active, so SIG
+!     now points at slot 2's array) - same depths, new frequency grid.
 !
+      DEALLOCATE ( CGTAB )
+      ALLOCATE ( CGTAB(NK2,NSEA1) )
+      CALL BLDCG ( NK2 )
       ALLOCATE ( VA2(NSPEC2,NSEA1) )
       DO ISEA=1, NSEA1
         DO IK=1, NK2
@@ -402,17 +450,54 @@
   900 FORMAT (/'  *** WAVEWATCH III restart spectral conversion ***'/)
   901 FORMAT ('  ',A,' grid : ',A,' NK=',I3,' NTH=',I3,' NSEA=',I8)
   902 FORMAT (/' *** ERROR : ',A,' differs between old/new grid (',   &
-               I8,' vs ',I8,') - only NTH may differ ***'/)
+               I8,' vs ',I8,') - must match ***'/)
   903 FORMAT (/' *** ERROR : ',A,' differs between old/new grid (',   &
-               F12.6,' vs ',F12.6,') - only NTH may differ ***'/)
-  904 FORMAT (/' *** WARNING : old and new NTH are identical - ',     &
-               'nothing to convert, but proceeding anyway ***'/)
+               F12.6,' vs ',F12.6,') - must match ***'/)
+  904 FORMAT (/' *** WARNING : old and new spectral grids are ',      &
+               'identical - nothing to convert, but proceeding ***'/)
   905 FORMAT ('  Restart time : ',2I9)
   906 FORMAT (/'  Wrote converted restart - rename restartNNN.ww3 ',  &
                'to restart.ww3 before starting the new grid.'/)
   907 FORMAT (/' *** ERROR : ',I10,' of ',I10,' regridded spectral ',  &
                'values are NaN or implausibly large - the converted', &
                ' restart was NOT written ***'/)
+  908 FORMAT ('  ',A,' freqs : XFR=',F6.3,' FR1=',F7.4,' fmax=',F7.4)
+  909 FORMAT (/'  Energy check : total E new/old = ',F8.5/            &
+               '                 max Hs change   = ',F8.4,' m at ISEA',&
+               I8/                                                    &
+               '                 points (Hs>0.1m) with |dHs|>1% : ',  &
+               I8,' of ',I8/)
+  910 FORMAT (/' *** ERROR : old restart has zero total energy - ',   &
+               'restart was not actually read? Not written ***'/)
+!
+      CONTAINS
+!/ ------------------------------------------------------------------- /
+      SUBROUTINE BLDCG ( NKX )
+!
+!micah edit: group velocity table for the currently active slot's
+!  frequencies (SIG is a per-slot pointer), NKX = that slot's NK.
+!  Pulled out of step 6 so it can be rebuilt for slot 2 in step 9.
+!
+      INTEGER, INTENT(IN)     :: NKX
+!
+      DO ISEA=1, NSEA1
+        DEPTH  = MAX ( DMIN, WLV1(ISEA) - ZB(ISEA) )
+        SQRTH  = SQRT ( DEPTH )
+        DO IK=1, NKX
+          SIX  = SIG(IK) * SQRTH
+          I1   = INT ( SIX/DSIE )
+          IF ( I1 .LE. N1MAX ) THEN
+              I2  = I1 + 1
+              R1  = SIX/DSIE - REAL(I1)
+              R2  = 1. - R1
+              CGTAB(IK,ISEA) = ( R2*ECG1(I1) + R1*ECG1(I2) ) * SQRTH
+            ELSE
+              CGTAB(IK,ISEA) = 0.5 * GRAV / SIG(IK)
+            END IF
+          END DO
+        END DO
+!
+      END SUBROUTINE BLDCG
 !/
 !/ End of W3RSCNV ------------------------------------------------------ /
 !/

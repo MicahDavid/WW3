@@ -433,6 +433,9 @@ $                                     2 : Watershedding + wind cutoff
 $                                     3 : Watershedding only
 $                                     4 : Wind speed cutoff only
 $                                     5 : High/Low band cutoff (see PTFC)
+$                                     6 : Default WW3 plus a conservative merge of
+$                                         swell partitions that are one swell cut
+$                                         in two (valley-depth test, see W3PARTMD)
 $                           PTFC   : Cutouf frequency for High/Low band
 $                                    partioning (PTM=5). Default = 0.1Hz
 $                           FMICHE : Constant in Miche limiter.

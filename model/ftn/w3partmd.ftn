@@ -20,6 +20,8 @@
 !/                  ( M. Szyszka )
 !/    23-Jul-2018 : Added alternative partitioning      ( version 6.05 )
 !/                  methods (C. Bunney, UKMO)
+!/    15-Oct-2026 : Added PTMETH 6, conservative merge of swell
+!/                  partitions that are one swell cut in two (PTMRGE)
 !  1. Purpose :
 !
 !     Spectral partitioning according to the watershed method.
@@ -44,6 +46,9 @@
 !      FIFO_ADD, FIFO_EMPTY, FIFO_FIRST
 !                Subr. PT_FLD   Queue management.
 !      PTMEAN    Subr. Public   Compute mean parameters.
+!      PTMRGE    Subr. Public   Merge swell partitions (PTMETH 6).
+!      PTSRTA    Subr. Public   Sort a real array, ascending (for PTMRGE).
+!      PTFIND    Func. Public   Union-find root (for PTMRGE).
 !     ----------------------------------------------------------------
 !
 !  4. Subroutines and functions used :
@@ -146,6 +151,8 @@
 !            a single wind sea and swell partition. [DIMXP = 2]
 !         5) 2-band partitioning; produces hi and low freqency band partitions
 !            using a user-defined cutoff frequency (PTFCUT). [DIMXP = 2]
+!         6) Standard WW3 partitioning, then swell partitions that are one
+!            swell cut in two by the watershed are merged (see PTMRGE).
 !
 !     (Chris Bunney, UK Met Office, Jul 2018)
 !
@@ -295,6 +302,13 @@
 ! 2.b Incremental flooding
 !
       CALL PT_FLD ( IMI, IND, IMO, ZP, NP_MAX )
+!
+! 2.b2 PTMETH == 6: merge swell partitions that are one swell cut in two.
+!      Only relabels IMO; the parameters below are computed from the
+!      merged partitions.
+!
+      IF ( PTMETH .EQ. 6 ) CALL PTMRGE ( IMO, ZP, DEPTH, UABS, UDIR,     &
+                                         WN, NP_MAX )
 !
 ! 2.c Compute parameters per partition
 !     NP and NX initialized inside routine.
@@ -1016,6 +1030,332 @@
 !/ End of PT_FLD ----------------------------------------------------- /
 !/
       END SUBROUTINE PT_FLD
+!/ ------------------------------------------------------------------- /
+      SUBROUTINE PTMRGE ( IMO, ZP, DEPTH, UABS, UDIR, WN, NPART )
+!/
+!/                  +-----------------------------------+
+!/                  | WAVEWATCH III                     |
+!/                  | Last update :         15-Oct-2026 |
+!/                  +-----------------------------------+
+!/
+!/    15-Oct-2026 : Origination (PTMETH 6).
+!/
+!  1. Purpose :
+!
+!     Merge swell partitions that are really one swell cut in two by the
+!     watershed flooding. Only relabels IMO; PTMEAN then computes the
+!     parameters of the merged partitions (Hs from the summed energy, peak
+!     period of the merged spectrum, mean direction and spread).
+!
+!  2. Method :
+!
+!     A pair of swell partitions (wind-sea fraction below WSCUT, Hs at
+!     least HSMRG) is merged when it passes either term:
+!
+!       main term    saddle ratio >= SADMIN and
+!                    dtp/CLSA + ddir/CLSB <= CLSMAX and
+!                    ddir <= DDRMAX and dtp <= DTPMAX
+!       long-period  both peak periods >= LPTMIN and ddir <= LPDDR and
+!                    dtp <= LPDTP (whatever the saddle)
+!
+!     dtp   : relative period gap, |Tp_a - Tp_b| / the shorter Tp
+!     ddir  : difference of the mean directions (degrees)
+!     saddle: highest pass between the two peak cells over the spectrum
+!             (path whose lowest energy is highest, 8 neighbours, direction
+!             wraps) divided by the lower of the two peaks. 1 = one
+!             connected ridge, 0 = a deep valley.
+!
+!     The rule is deliberately conservative (a missed merge is preferred
+!     to a false one). It was fitted to hand-labeled pairs and is
+!     defined in verify/merge_rule.py of the RUN_WW3 repository, whose
+!     Python reference (verify/swell_merge.py) this routine follows.
+!
+!     Pairs are merged best first (highest saddle ratio); the merged
+!     partition is re-measured with PTMEAN and tested against the rest.
+!     All saddles are found in one sweep over the cells in descending
+!     energy (union-find), and stay valid after merges because the peak
+!     of a merged partition is the higher of the two peaks.
+!
+!  3. Parameters :
+!
+!     Parameter list
+!     ----------------------------------------------------------------
+!       IMO     I.A.  I/O  Partition map from PT_FLD (labels 1..NPART).
+!       ZP      R.A.   I   Spectrum, flattened as in W3PART.
+!       DEPTH   Real   I   Water depth.
+!       UABS    Real   I   Wind speed.
+!       UDIR    Real   I   Wind direction.
+!       WN      R.A.   I   Wavenumbers for each frequency.
+!       NPART   Int.   I   Number of partitions (labels) in IMO.
+!     ----------------------------------------------------------------
+!
+! 10. Source code :
+!
+!/ ------------------------------------------------------------------- /
+!
+      USE CONSTANTS
+      USE W3GDATMD, ONLY: NK, NTH, NSPEC
+      USE W3ODATMD, ONLY: WSCUT
+!
+      IMPLICIT NONE
+!/
+!/ ------------------------------------------------------------------- /
+!/ Parameter list
+!/
+      INTEGER, INTENT(INOUT)  :: IMO(NSPEC)
+      INTEGER, INTENT(IN)     :: NPART
+      REAL, INTENT(IN)        :: ZP(NSPEC), DEPTH, UABS, UDIR, WN(NK)
+!/
+!/ ------------------------------------------------------------------- /
+!/ Local parameters
+!/
+      INTEGER, PARAMETER      :: MAXC = 30
+      REAL, PARAMETER         :: HSMRG  = 0.2     ! min Hs to merge (m)
+      REAL, PARAMETER         :: SADMIN = 0.78    ! min saddle ratio
+      REAL, PARAMETER         :: CLSA   = 0.4     ! period gap scale
+      REAL, PARAMETER         :: CLSB   = 50.     ! direction gap scale
+      REAL, PARAMETER         :: CLSMAX = 1.75    ! max closeness
+      REAL, PARAMETER         :: DDRMAX = 75.     ! max direction gap
+      REAL, PARAMETER         :: DTPMAX = 0.8     ! max period gap
+      REAL, PARAMETER         :: LPTMIN = 14.     ! long-period branch:
+      REAL, PARAMETER         :: LPDDR  = 15.     !   min period, max
+      REAL, PARAMETER         :: LPDTP  = 0.35    !   ddir, max dtp
+!
+      REAL                    :: XPL(DIMP,0:NPART+1), SAD(MAXC,MAXC)
+      INTEGER                 :: PMAPL(NPART+1), ISRT(NSPEC),            &
+                                 PAR(NSPEC), MSK(NSPEC)
+      LOGICAL                 :: ACT(NSPEC), ALIVE(MAXC), PASS, DONE
+      INTEGER                 :: CLAB(MAXC), CPK(MAXC), PKI(MAXC)
+      INTEGER                 :: NPL, NC, IC, JC, K, KA, KB, I, J, ISP,  &
+                                 NB, RI, RN, A, B, FULL, BI, BJ
+      REAL                    :: H, DTP, DDR, RATIO, LOW, BEST, TPA, TPB
+!
+! -------------------------------------------------------------------- /
+! 1.  Features of the watershed partitions
+!
+      IF ( NPART .LT. 2 ) RETURN
+!
+      CALL PTMEAN ( NPART, IMO, ZP, DEPTH, UABS, UDIR, WN,              &
+                    NPL, XPL, NPART+1, PMAPL )
+      IF ( NPL .LT. 2 ) RETURN
+!
+! 2.  Swell candidates: big enough, not wind sea
+!
+      NC = 0
+      DO K=1, NPL
+        IF ( XPL(1,K) .GE. HSMRG .AND. XPL(6,K) .LT. WSCUT              &
+             .AND. NC .LT. MAXC ) THEN
+          NC       = NC + 1
+          CLAB(NC) = PMAPL(K)
+        END IF
+        END DO
+      IF ( NC .LT. 2 ) RETURN
+!
+! 3.  Peak cell of each candidate (first highest cell of its label)
+!
+      DO IC=1, NC
+        CPK(IC) = 0
+        DO ISP=1, NSPEC
+          IF ( IMO(ISP) .EQ. CLAB(IC) ) THEN
+            IF ( CPK(IC) .EQ. 0 ) THEN
+              CPK(IC) = ISP
+            ELSE IF ( ZP(ISP) .GT. ZP(CPK(IC)) ) THEN
+              CPK(IC) = ISP
+            END IF
+          END IF
+          END DO
+        PKI(IC)   = IC
+        ALIVE(IC) = .TRUE.
+        END DO
+!
+! 4.  Saddle between every pair of peaks: sweep the cells in descending
+!     energy and join neighbours; two peaks are connected at the energy
+!     of the cell that first joins their components.
+!
+      CALL PTSRTA ( NSPEC, ZP, ISRT )
+      DO I=1, NSPEC
+        PAR(I) = I
+        MSK(I) = 0
+        ACT(I) = .FALSE.
+        END DO
+      FULL = 0
+      DO IC=1, NC
+        MSK(CPK(IC)) = IBSET ( MSK(CPK(IC)), IC-1 )
+        FULL         = IBSET ( FULL, IC-1 )
+        END DO
+      SAD  = 0.
+      DONE = .FALSE.
+!
+      DO J=NSPEC, 1, -1
+        I      = ISRT(J)
+        ACT(I) = .TRUE.
+        H      = ZP(I)
+        DO K=1, NEIGH(9,I)
+          NB = NEIGH(K,I)
+          IF ( .NOT. ACT(NB) ) CYCLE
+          RI = PTFIND ( PAR, NSPEC, I )
+          RN = PTFIND ( PAR, NSPEC, NB )
+          IF ( RI .EQ. RN ) CYCLE
+          DO A=1, NC
+            IF ( .NOT. BTEST(MSK(RI),A-1) ) CYCLE
+            DO B=1, NC
+              IF ( BTEST(MSK(RN),B-1) ) THEN
+                SAD(A,B) = H
+                SAD(B,A) = H
+              END IF
+              END DO
+            END DO
+          PAR(RN) = RI
+          MSK(RI) = IOR ( MSK(RI), MSK(RN) )
+          IF ( MSK(RI) .EQ. FULL ) DONE = .TRUE.
+          END DO
+        IF ( DONE ) EXIT
+        END DO
+!
+! 5.  Merge the best passing pair, re-measure, repeat
+!
+      DO
+        BEST = -1.
+        BI   = 0
+        BJ   = 0
+        DO IC=1, NC-1
+          IF ( .NOT. ALIVE(IC) ) CYCLE
+          KA = 0
+          DO K=1, NPL
+            IF ( PMAPL(K) .EQ. CLAB(IC) ) KA = K
+            END DO
+          IF ( KA .EQ. 0 ) CYCLE
+          IF ( XPL(1,KA) .LT. HSMRG .OR. XPL(6,KA) .GE. WSCUT ) CYCLE
+!
+          DO JC=IC+1, NC
+            IF ( .NOT. ALIVE(JC) ) CYCLE
+            KB = 0
+            DO K=1, NPL
+              IF ( PMAPL(K) .EQ. CLAB(JC) ) KB = K
+              END DO
+            IF ( KB .EQ. 0 ) CYCLE
+            IF ( XPL(1,KB) .LT. HSMRG .OR. XPL(6,KB) .GE. WSCUT ) CYCLE
+!
+            TPA   = XPL(2,KA)
+            TPB   = XPL(2,KB)
+            DTP   = ABS(TPA-TPB) / MIN(TPA,TPB)
+            DDR   = ABS ( MOD ( XPL(4,KA)-XPL(4,KB)+540., 360. ) - 180. )
+            LOW   = MIN ( ZP(CPK(PKI(IC))), ZP(CPK(PKI(JC))) )
+            RATIO = 0.
+            IF ( LOW .GT. 0. ) RATIO = MIN ( 1., SAD(PKI(IC),PKI(JC))   &
+                                                 / LOW )
+!
+            PASS = .FALSE.
+            IF ( MIN(TPA,TPB) .GE. LPTMIN .AND. DDR .LE. LPDDR          &
+                 .AND. DTP .LE. LPDTP ) THEN
+              PASS = .TRUE.
+            ELSE IF ( RATIO .GE. SADMIN .AND.                           &
+                      DTP/CLSA + DDR/CLSB .LE. CLSMAX .AND.             &
+                      DDR .LE. DDRMAX .AND. DTP .LE. DTPMAX ) THEN
+              PASS = .TRUE.
+            END IF
+!
+            IF ( PASS .AND. RATIO .GE. BEST ) THEN
+              BEST = RATIO
+              BI   = IC
+              BJ   = JC
+            END IF
+            END DO
+          END DO
+!
+        IF ( BI .EQ. 0 ) EXIT
+!
+!     merge BJ into BI: relabel, the group peak is the higher peak
+!
+        DO ISP=1, NSPEC
+          IF ( IMO(ISP) .EQ. CLAB(BJ) ) IMO(ISP) = CLAB(BI)
+          END DO
+        ALIVE(BJ) = .FALSE.
+        IF ( ZP(CPK(PKI(BJ))) .GT. ZP(CPK(PKI(BI))) ) PKI(BI) = PKI(BJ)
+!
+        CALL PTMEAN ( NPART, IMO, ZP, DEPTH, UABS, UDIR, WN,            &
+                      NPL, XPL, NPART+1, PMAPL )
+        IF ( NPL .LT. 2 ) EXIT
+        END DO
+!
+      RETURN
+!/
+!/ End of PTMRGE ----------------------------------------------------- /
+!/
+      END SUBROUTINE PTMRGE
+!/ ------------------------------------------------------------------- /
+      SUBROUTINE PTSRTA ( N, A, IDX )
+!
+!     Heapsort: IDX holds the indices of A in ascending order of value.
+!
+      INTEGER, INTENT(IN)     :: N
+      REAL, INTENT(IN)        :: A(N)
+      INTEGER, INTENT(OUT)    :: IDX(N)
+!
+      INTEGER                 :: I, J, L, IR, T
+!
+      DO I=1, N
+        IDX(I) = I
+        END DO
+      IF ( N .LT. 2 ) RETURN
+      L  = N/2 + 1
+      IR = N
+   10 CONTINUE
+      IF ( L .GT. 1 ) THEN
+          L = L - 1
+          T = IDX(L)
+        ELSE
+          T      = IDX(IR)
+          IDX(IR) = IDX(1)
+          IR     = IR - 1
+          IF ( IR .EQ. 1 ) THEN
+              IDX(1) = T
+              RETURN
+            END IF
+        END IF
+      I = L
+      J = L + L
+   20 CONTINUE
+      IF ( J .LE. IR ) THEN
+          IF ( J .LT. IR ) THEN
+              IF ( A(IDX(J)) .LT. A(IDX(J+1)) ) J = J + 1
+            END IF
+          IF ( A(T) .LT. A(IDX(J)) ) THEN
+              IDX(I) = IDX(J)
+              I      = J
+              J      = J + J
+            ELSE
+              J = IR + 1
+            END IF
+          GOTO 20
+        END IF
+      IDX(I) = T
+      GOTO 10
+!
+      END SUBROUTINE PTSRTA
+!/ ------------------------------------------------------------------- /
+      INTEGER FUNCTION PTFIND ( PAR, N, I )
+!
+!     Root of I in the union-find array PAR, with path compression.
+!
+      INTEGER, INTENT(IN)     :: N, I
+      INTEGER, INTENT(INOUT)  :: PAR(N)
+!
+      INTEGER                 :: R, T, K
+!
+      R = I
+      DO WHILE ( PAR(R) .NE. R )
+        R = PAR(R)
+        END DO
+      T = I
+      DO WHILE ( PAR(T) .NE. T )
+        K      = PAR(T)
+        PAR(T) = R
+        T      = K
+        END DO
+      PTFIND = R
+!
+      END FUNCTION PTFIND
 !/ ------------------------------------------------------------------- /
       SUBROUTINE PTMEAN ( NPI, IMO, ZP, DEPTH, UABS, UDIR, WN,        &
                           NPO, XP, DIMXP, PMAP )

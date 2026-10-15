@@ -921,6 +921,10 @@
       ELSE IF ( PTMETH .EQ. 5 ) THEN
         WRITE(PARTCOM, '("Wave components defined using ",F5.3,'   //  &
                   '"Hz spectral frequency cutoff")') PTFCUT
+      ELSE IF ( PTMETH .EQ. 6 ) THEN
+        PARTCOM = "Wind sea and swells defined using topographic " //  &
+                  "partitions and partition wave-age cut-off, with "  //  &
+                  "swell partitions that are one swell cut in two merged"
       ELSE
         WRITE(PARTCOM, '("PTM_",I1,"_Unknown")') PTMETH
       ENDIF

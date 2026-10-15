@@ -2525,6 +2525,9 @@
         PMNAM2 = "WSC set to 0.0, NOSW set to 1"
         WSCUT = 0.0 ! We don't want to classify by ws frac
         NOSWLL = 1  ! Only ever one swell
+      ELSE IF( PTMETH .EQ. 6 ) THEN
+        PMNAME = "WW3 default plus swell merge"
+        PMNAM2 = "Conservative swell merge, see W3PARTMD PTMRGE"
       ELSE
         WRITE( NDSE, * )                                                &
           "*** Error - unknown partitioing method (PTM)! ***"

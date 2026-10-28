@@ -925,6 +925,11 @@
         PARTCOM = "Wind sea and swells defined using topographic " //  &
                   "partitions and partition wave-age cut-off, with "  //  &
                   "swell partitions that are one swell cut in two merged"
+      ELSE IF ( PTMETH .EQ. 7 ) THEN
+        PARTCOM = "Wind sea and swells defined using topographic " //  &
+                  "partitions and partition wave-age cut-off, with "  //  &
+                  "wind sea and swell partitions that overlap, and "  //  &
+                  "swell partitions that are one swell cut in two, merged"
       ELSE
         WRITE(PARTCOM, '("PTM_",I1,"_Unknown")') PTMETH
       ENDIF

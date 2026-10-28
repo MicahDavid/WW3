@@ -2528,6 +2528,9 @@
       ELSE IF( PTMETH .EQ. 6 ) THEN
         PMNAME = "WW3 default plus swell merge"
         PMNAM2 = "Conservative swell merge, see W3PARTMD PTMRGE"
+      ELSE IF( PTMETH .EQ. 7 ) THEN
+        PMNAME = "WW3 default plus wind-sea and swell merge"
+        PMNAM2 = "Wind-sea then swell merge, see PTMBOX/PTMRGE"
       ELSE
         WRITE( NDSE, * )                                                &
           "*** Error - unknown partitioing method (PTM)! ***"

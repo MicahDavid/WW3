@@ -20,6 +20,8 @@
 !/                  ( M. Szyszka )
 !/    23-Jul-2018 : Added alternative partitioning      ( version 6.05 )
 !/                  methods (C. Bunney, UKMO)
+!/    28-Oct-2026 : Added PTMETH 7, wind-affected merge (PTMBOX) then
+!/                  the swell merge (PTMRGE), both after wind seas combine
 !/    15-Oct-2026 : Added PTMETH 6, conservative merge of swell
 !/                  partitions that are one swell cut in two (PTMRGE)
 !  1. Purpose :
@@ -46,7 +48,8 @@
 !      FIFO_ADD, FIFO_EMPTY, FIFO_FIRST
 !                Subr. PT_FLD   Queue management.
 !      PTMEAN    Subr. Public   Compute mean parameters.
-!      PTMRGE    Subr. Public   Merge swell partitions (PTMETH 6).
+!      PTMRGE    Subr. Public   Merge swell partitions (PTMETH 6, 7).
+!      PTMBOX    Subr. Public   Merge wind sea with a swell (PTMETH 7).
 !      PTSRTA    Subr. Public   Sort a real array, ascending (for PTMRGE).
 !      PTFIND    Func. Public   Union-find root (for PTMRGE).
 !     ----------------------------------------------------------------
@@ -414,6 +417,31 @@
             TP(6,IT(1)) = -1.
             END DO
 !
+        END IF
+!
+! 3.b2 PTMETH == 7: wind-affected merge, then the swell merge, on the
+!      partitions as they stand after the wind seas are combined.
+!      Re-measure and re-sort the partitions afterwards.
+!
+      IF ( PTMETH .EQ. 7 ) THEN
+          CALL PTMBOX ( IMO, ZP, DEPTH, UABS, UDIR, WN, NP_MAX )
+          CALL PTMRGE ( IMO, ZP, DEPTH, UABS, UDIR, WN, NP_MAX )
+          CALL PTMEAN ( NP_MAX, IMO, ZP, DEPTH, UABS, UDIR, WN,       &
+                        NP, XP, DIMXP, PMAP )
+          IF ( NP .LE. 1 ) RETURN
+!
+          TP(:,1:NP)  = XP(:,1:NP)
+          XP(:,1:NP)  = 0.
+          INDEX(1:NP) = 0
+          NWS         = 0
+!
+          DO IP=1, NP
+            IT          = MAXLOC(TP(6,1:NP))
+            INDEX(IP)   = IT(1)
+            XP(:,IP)    = TP(:,INDEX(IP))
+            IF ( TP(6,IT(1)) .GE. WSCUT ) NWS = NWS + 1
+            TP(6,IT(1)) = -1.
+            END DO
         END IF
 !
 ! 3.c Sort remaining fields by wave height
@@ -1283,6 +1311,110 @@
 !/ End of PTMRGE ----------------------------------------------------- /
 !/
       END SUBROUTINE PTMRGE
+!/ ------------------------------------------------------------------- /
+      SUBROUTINE PTMBOX ( IMO, ZP, DEPTH, UABS, UDIR, WN, NPART )
+!/
+!/                  +-----------------------------------+
+!/                  | WAVEWATCH III                     |
+!/                  | Last update :         28-Oct-2026 |
+!/                  +-----------------------------------+
+!/
+!/    28-Oct-2026 : Origination (PTMETH 7).
+!/
+!  1. Purpose :
+!
+!     Merge a wind-affected partition (wind-sea fraction at or above
+!     WSCUT, normally the combined wind sea) with a swell it overlaps.
+!     Only relabels IMO.
+!
+!  2. Method :
+!
+!     A pair with both Hs at least HSMRG and the larger wind-sea
+!     fraction at or above WSCUT is merged when the relative period gap
+!     is at most BXDTP and the direction gap at most BXDDR (no saddle
+!     test). The pair with the smallest DTP/BXDTP + DDR/BXDDR goes
+!     first; the merged partition is re-measured and the search repeats.
+!
+!  3. Parameters :
+!
+!       IMO     I.A.  I/O  Partition map (labels 1..NPART).
+!       ZP      R.A.   I   Spectrum.
+!       DEPTH, UABS, UDIR, WN, NPART as for PTMRGE.
+!
+! 10. Source code :
+!
+!/ ------------------------------------------------------------------- /
+!/
+      USE CONSTANTS
+      USE W3GDATMD, ONLY: NK, NTH, NSPEC
+      USE W3ODATMD, ONLY: WSCUT, DIMP
+!
+      IMPLICIT NONE
+!/
+!/ ------------------------------------------------------------------- /
+!/ Parameter list
+!/
+      INTEGER, INTENT(INOUT)  :: IMO(NSPEC)
+      INTEGER, INTENT(IN)     :: NPART
+      REAL, INTENT(IN)        :: ZP(NSPEC), DEPTH, UABS, UDIR, WN(NK)
+!/
+!/ ------------------------------------------------------------------- /
+!/ Local parameters
+!/
+      REAL, PARAMETER         :: HSMRG = 0.2      ! min Hs to merge (m)
+      REAL, PARAMETER         :: BXDTP = 0.65     ! max relative period gap
+      REAL, PARAMETER         :: BXDDR = 60.      ! max direction gap
+!
+      REAL                    :: XPL(DIMP,0:NPART+1)
+      INTEGER                 :: PMAPL(NPART+1)
+      INTEGER                 :: NPL, KA, KB, BA, BB, ISP
+      REAL                    :: DTP, DDR, CLS, BEST, TPA, TPB
+!
+! -------------------------------------------------------------------- /
+!
+      IF ( NPART .LT. 2 ) RETURN
+!
+      DO
+        CALL PTMEAN ( NPART, IMO, ZP, DEPTH, UABS, UDIR, WN,            &
+                      NPL, XPL, NPART+1, PMAPL )
+        IF ( NPL .LT. 2 ) EXIT
+!
+        BEST = 1.E30
+        BA   = 0
+        BB   = 0
+        DO KA=1, NPL-1
+          IF ( XPL(1,KA) .LT. HSMRG ) CYCLE
+          DO KB=KA+1, NPL
+            IF ( XPL(1,KB) .LT. HSMRG ) CYCLE
+            IF ( MAX ( XPL(6,KA), XPL(6,KB) ) .LT. WSCUT ) CYCLE
+!
+            TPA = XPL(2,KA)
+            TPB = XPL(2,KB)
+            DTP = ABS(TPA-TPB) / MIN(TPA,TPB)
+            DDR = ABS ( MOD ( XPL(4,KA)-XPL(4,KB)+540., 360. ) - 180. )
+            IF ( DTP .LE. BXDTP .AND. DDR .LE. BXDDR ) THEN
+              CLS = DTP/BXDTP + DDR/BXDDR
+              IF ( CLS .LT. BEST ) THEN
+                BEST = CLS
+                BA   = KA
+                BB   = KB
+              END IF
+            END IF
+            END DO
+          END DO
+!
+        IF ( BA .EQ. 0 ) EXIT
+!
+        DO ISP=1, NSPEC
+          IF ( IMO(ISP) .EQ. PMAPL(BB) ) IMO(ISP) = PMAPL(BA)
+          END DO
+        END DO
+!
+      RETURN
+!/
+!/ End of PTMBOX ----------------------------------------------------- /
+!/
+      END SUBROUTINE PTMBOX
 !/ ------------------------------------------------------------------- /
       SUBROUTINE PTSRTA ( N, A, IDX )
 !

@@ -1332,8 +1332,10 @@
 !     A pair with both Hs at least HSMRG and the larger wind-sea
 !     fraction at or above WSCUT is merged when the relative period gap
 !     is at most BXDTP and the direction gap at most BXDDR (no saddle
-!     test). The pair with the smallest DTP/BXDTP + DDR/BXDDR goes
-!     first; the merged partition is re-measured and the search repeats.
+!     test), and the combined DTP/BXDTP + DDR/BXDDR is at most BXCLS,
+!     so a pair cannot use most of both allowances. The pair with the
+!     smallest combined value goes first; the merged partition is
+!     re-measured and the search repeats.
 !
 !  3. Parameters :
 !
@@ -1364,6 +1366,7 @@
       REAL, PARAMETER         :: HSMRG = 0.2      ! min Hs to merge (m)
       REAL, PARAMETER         :: BXDTP = 0.65     ! max relative period gap
       REAL, PARAMETER         :: BXDDR = 60.      ! max direction gap
+      REAL, PARAMETER         :: BXCLS = 1.25     ! max DTP/BXDTP + DDR/BXDDR
 !
       REAL                    :: XPL(DIMP,0:NPART+1)
       INTEGER                 :: PMAPL(NPART+1)
@@ -1394,7 +1397,7 @@
             DDR = ABS ( MOD ( XPL(4,KA)-XPL(4,KB)+540., 360. ) - 180. )
             IF ( DTP .LE. BXDTP .AND. DDR .LE. BXDDR ) THEN
               CLS = DTP/BXDTP + DDR/BXDDR
-              IF ( CLS .LT. BEST ) THEN
+              IF ( CLS .LE. BXCLS .AND. CLS .LT. BEST ) THEN
                 BEST = CLS
                 BA   = KA
                 BB   = KB

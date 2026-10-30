@@ -1366,7 +1366,7 @@
       REAL, PARAMETER         :: HSMRG = 0.2      ! min Hs to merge (m)
       REAL, PARAMETER         :: BXDTP = 0.65     ! max relative period gap
       REAL, PARAMETER         :: BXDDR = 60.      ! max direction gap
-      REAL, PARAMETER         :: BXCLS = 1.25     ! max DTP/BXDTP + DDR/BXDDR
+      REAL, PARAMETER         :: BXCLS = 1.0      ! max DTP/BXDTP + DDR/BXDDR
 !
       REAL                    :: XPL(DIMP,0:NPART+1)
       INTEGER                 :: PMAPL(NPART+1)
